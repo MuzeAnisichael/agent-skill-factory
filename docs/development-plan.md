@@ -45,6 +45,8 @@ Exit criteria:
 
 - Given a small task brief, the CLI creates a valid Skill directory.
 
+Status: initial implementation complete.
+
 ## Milestone 2: Static Linter
 
 Deliverables:
@@ -59,6 +61,8 @@ Deliverables:
 Exit criteria:
 
 - Invalid or unsafe draft Skills fail lint with actionable messages.
+
+Status: initial implementation complete for frontmatter, naming, resource references, length, generic filler, dangerous instruction, and Python syntax checks.
 
 ## Milestone 3: Eval Runner
 
