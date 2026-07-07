@@ -9,6 +9,7 @@ description = "Generate, lint, and evaluate reusable Agent Skills."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+keywords = ["agents", "skills", "llm", "code-generation", "developer-tools"]
 authors = [
   { name = "Agent Skill Factory contributors" }
 ]
@@ -24,6 +25,12 @@ classifiers = [
   "Topic :: Software Development :: Code Generators"
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/MuzeAnisichael/agent-skill-factory"
+Repository = "https://github.com/MuzeAnisichael/agent-skill-factory"
+Issues = "https://github.com/MuzeAnisichael/agent-skill-factory/issues"
+Documentation = "https://github.com/MuzeAnisichael/agent-skill-factory/tree/main/docs"
 
 [project.scripts]
 skill-factory = "skill_factory.cli:main"
