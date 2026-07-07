@@ -46,6 +46,35 @@ skill-name/
 4. Repair Agent: make bounded edits based on lint and eval failures.
 5. Registry: store Skill versions, scores, dependencies, risk level, and export targets.
 
+## Quick Start
+
+Run from source:
+
+```bash
+python -m pip install -e .
+skill-factory init .
+skill-factory generate \
+  --name "Release Note Builder" \
+  --description "Use this skill when the agent needs to create release notes from repository changes." \
+  --brief "Create concise release notes grounded in repository changes." \
+  --resources references,scripts \
+  --output skills
+skill-factory lint skills/release-note-builder
+```
+
+Without installation:
+
+```bash
+PYTHONPATH=src python -m skill_factory --version
+PYTHONPATH=src python -m skill_factory lint skills/release-note-builder
+```
+
+Run tests:
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests
+```
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
@@ -56,7 +85,7 @@ skill-name/
 
 ## Status
 
-Planning stage. The first implementation target is a local CLI that generates and validates Skill packages in a workspace directory.
+Early development. The repository includes an initial local CLI for workspace initialization, draft Skill generation, and static linting.
 
 ## License
 
