@@ -1,0 +1,15 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The project follows a simple pre-release changelog until versioned releases begin.
+
+## Unreleased
+
+### Added
+
+- Initial local CLI with `init`, `generate`, and `lint`.
+- Skill package writer for `SKILL.md`, optional resource directories, and `agents/openai.yaml`.
+- Static linter for Skill metadata, naming, resource references, unsafe instructions, and Python script syntax.
+- Unit tests for CLI, generation, linting, and naming.
+- Roadmap, completion table, security model, contribution guide, and CI workflow.
