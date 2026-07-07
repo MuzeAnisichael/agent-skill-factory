@@ -1,8 +1,26 @@
 # Agent Skill Factory
 
-Agent Skill Factory is an open-source project for generating, validating, and publishing reusable Agent Skills.
+[![CI](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](ROADMAP.md)
+
+Agent Skill Factory is an open-source toolchain for generating, validating, and publishing reusable Agent Skills.
 
 目标：把真实任务、文档、代码库、工具说明和 Agent 运行 trace 转化为可复用、可评测、可发布的 Skill 包，而不是只生成一段长 prompt。
+
+## Project Status
+
+This project is in early alpha. The first working slice is a local Python CLI that can initialize a workspace, generate a draft Skill package, and lint Skill quality and safety.
+
+| Area | Status | Notes |
+|---|---|---|
+| Local CLI | Done | `init`, `generate`, and `lint` are implemented. |
+| Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
+| Static linter | In progress | Initial checks cover naming, frontmatter, missing resources, risky instructions, and Python script syntax. |
+| Eval runner | Planned | Trigger and with-skill vs without-skill evals are next. |
+| Repair loop | Planned | Bounded auto-fixes based on lint and eval failures. |
+| Registry and export | Planned | Local registry, version metadata, and install adapters. |
 
 ## Why
 
@@ -48,6 +66,11 @@ skill-name/
 
 ## Quick Start
 
+Requirements:
+
+- Python 3.10+
+- Git
+
 Run from source:
 
 ```bash
@@ -75,17 +98,54 @@ Run tests:
 PYTHONPATH=src python -m unittest discover -s tests
 ```
 
+## Repository Layout
+
+```text
+src/skill_factory/       Core CLI, generator, linter, and data models
+tests/                   Unit tests for CLI, generation, and linting
+docs/                    Architecture, evaluation, security, and format docs
+.github/                 CI, issue templates, and PR template
+ROADMAP.md               Development plan and completion table
+```
+
 ## Documentation
 
+- [Roadmap and Completion Table](ROADMAP.md)
 - [Architecture](docs/architecture.md)
 - [Development Plan](docs/development-plan.md)
 - [Skill Output Format](docs/skill-output-format.md)
 - [Evaluation Strategy](docs/evaluation.md)
 - [Security Model](docs/security-model.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 
-## Status
+## Current CLI
 
-Early development. The repository includes an initial local CLI for workspace initialization, draft Skill generation, and static linting.
+```bash
+skill-factory --help
+skill-factory init ./workspace
+skill-factory generate --name "Release Note Builder" --brief "Create release notes." --output skills
+skill-factory lint skills/release-note-builder
+```
+
+The generated Skill target is intentionally simple and compatible with Agent Skills-style clients:
+
+```text
+skill-name/
+├── SKILL.md
+├── references/
+├── scripts/
+├── assets/
+└── agents/openai.yaml
+```
+
+## Contributing
+
+Contributions are welcome in small, reviewable changes. Good first areas include lint rules, fixture Skills, eval file formats, CLI ergonomics, and documentation examples. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+Generated Skills can influence agent behavior and tool use. Treat all generated Skills as untrusted until linted and evaluated. See [SECURITY.md](SECURITY.md) and [Security Model](docs/security-model.md).
 
 ## License
 
