@@ -1,5 +1,7 @@
 # Development Plan
 
+For a concise public-facing milestone table, see [Roadmap and Completion Table](../ROADMAP.md).
+
 ## Product Goal
 
 Build a practical toolchain for creating Agent Skills that are:
@@ -18,6 +20,8 @@ Build a practical toolchain for creating Agent Skills that are:
 - Do not optimize for every Agent client-specific extension at the start.
 
 ## Milestone 0: Repository and Spec
+
+Status: complete.
 
 Deliverables:
 
@@ -116,3 +120,15 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 3. Implement static linter.
 4. Add fixture Skills for valid, invalid, risky, and oversized examples.
 5. Add unit tests for validation rules.
+
+## Completion Matrix
+
+| Workstream | Current State | Completion |
+|---|---|---:|
+| Repository presentation | README, license, security, contributing, support, changelog, CI, templates | 100% |
+| CLI foundation | `init`, `generate`, `lint` | 100% |
+| Skill generation | Standard folder output with optional resources | 80% |
+| Static linting | Core checks implemented | 65% |
+| Evaluation | Design documented | 0% |
+| Repair loop | Design documented | 0% |
+| Registry/export | Design documented | 0% |
