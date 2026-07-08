@@ -35,6 +35,47 @@ class EvaluatorTests(unittest.TestCase):
             with self.assertRaises(EvalError):
                 evaluate_skill(skill_dir)
 
+    def test_invalid_trigger_schema_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self.write_skill_with_eval(
+                Path(tmp),
+                {
+                    "trigger_tests": [
+                        {
+                            "id": "bad-trigger",
+                            "query": "Create release notes.",
+                            "should_trigger": "yes"
+                        }
+                    ]
+                },
+            )
+
+            with self.assertRaisesRegex(EvalError, "should_trigger"):
+                evaluate_skill(skill_dir)
+
+    def test_invalid_assertion_schema_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self.write_skill_with_eval(
+                Path(tmp),
+                {
+                    "task_tests": [
+                        {
+                            "id": "bad-assertion",
+                            "assertions": [
+                                {
+                                    "target": "body",
+                                    "contains": "features",
+                                    "not_contains": "rm -rf"
+                                }
+                            ]
+                        }
+                    ]
+                },
+            )
+
+            with self.assertRaisesRegex(EvalError, "exactly one"):
+                evaluate_skill(skill_dir)
+
     def test_report_format_includes_summary(self) -> None:
         report = evaluate_skill(FIXTURES / "release-note-builder")
         text = format_eval_report(report)
@@ -49,6 +90,24 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(payload["passed_count"], 3)
         self.assertEqual(len(payload["results"]), 3)
         json.dumps(payload)
+
+    def write_skill_with_eval(self, root: Path, eval_payload: dict) -> Path:
+        skill_dir = root / "schema-skill"
+        eval_dir = skill_dir / "evals"
+        eval_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            (
+                "---\n"
+                "name: schema-skill\n"
+                "description: Use this skill when testing eval schema validation.\n"
+                "---\n\n"
+                "# Schema Skill\n\n"
+                "Includes features and fixes.\n"
+            ),
+            encoding="utf-8",
+        )
+        (eval_dir / "evals.json").write_text(json.dumps(eval_payload), encoding="utf-8")
+        return skill_dir
 
 
 if __name__ == "__main__":
