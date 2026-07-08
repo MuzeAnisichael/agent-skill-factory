@@ -10,66 +10,49 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](ROADMAP.md)
 
-Agent Skill Factory is an open-source toolchain for generating, validating, and publishing reusable Agent Skills.
+Agent Skill Factory is an open-source local toolchain for generating, validating, evaluating, registering, and exporting reusable Agent Skills.
 
-It turns real tasks, documentation, codebases, tool descriptions, and agent traces into reusable, testable, publishable Skill packages instead of a single long prompt.
+It turns real task briefs, documentation, codebase conventions, tool descriptions, and future agent traces into testable Skill packages instead of one long prompt.
 
 ## Project Status
 
-This project is in early alpha. The first working slice is a local Python CLI that can initialize a workspace, generate a draft Skill package, call a local or API-backed LLM for structured planning, lint Skill quality and safety, and run local evals.
+Current version: `0.3.0`
+
+The project is still alpha, but the local lifecycle is now usable end to end:
 
 | Area | Status | Notes |
 |---|---|---|
-| Local CLI | Done | `init`, `generate`, and `lint` are implemented. |
+| Local CLI | Done | `init`, `plan`, `generate`, `lint`, `eval`, `registry`, `export`, `install`, and `eval-schema`. |
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
-| LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured SkillPlan generation. |
-| Static linter | In progress | Initial checks cover naming, frontmatter, missing resources, risky instructions, and Python script syntax. |
-| Eval runner | In progress | Local trigger evals and task assertion evals are implemented. Agent-backed baseline evals are next. |
-| Repair loop | Planned | Bounded auto-fixes based on lint and eval failures. |
-| Registry and export | Planned | Local registry, version metadata, and install adapters. |
+| LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured `SkillPlan` generation. |
+| Static linter | In progress | Covers naming, frontmatter, missing resources, risky instructions, and Python syntax. |
+| Eval runner | In progress | Local trigger evals, task assertions, strict schema validation, and JSON reports. |
+| Local registry/export | Done | File-based registry, source hashes, risk summary, eval status, and client directory export. |
+| Repair loop | Planned | Bounded fixes based on lint and eval failures. |
+| Agent-backed evals | Planned | Runtime comparison with and without Skills. |
 
 ## Why
 
-Agent Skills are becoming a practical way to extend coding agents and workflow agents with domain-specific procedures, tools, references, scripts, and templates. A good Skill should be concise, scoped, testable, and safe. A one-shot LLM-generated `SKILL.md` is not enough for production use.
+Agent Skills are a practical way to extend coding agents and workflow agents with domain-specific procedures, references, scripts, tools, and templates. A production-quality Skill should be scoped, concise, testable, and safe by default. A one-shot generated `SKILL.md` is not enough.
 
-Agent Skill Factory focuses on the full lifecycle:
+Agent Skill Factory focuses on the full local lifecycle:
 
 ```text
-source material -> skill planning -> skill generation -> lint -> eval -> repair -> registry -> publish
+source material -> skill planning -> skill generation -> lint -> eval -> registry -> export/install
 ```
-
-## Scope
-
-This repository starts with a lightweight but complete architecture for:
-
-- Generating standard Skill packages.
-- Validating `SKILL.md` structure and triggering quality.
-- Planning Skill packages with local Ollama or OpenAI-compatible APIs.
-- Comparing with-skill vs without-skill task performance.
-- Detecting safety and permission risks.
-- Managing versions in a local or hosted Skill Registry.
-- Exporting to Agent Skills-compatible clients such as Codex, Claude Code, and ADK-style runtimes.
 
 ## Skill Package Target
 
 ```text
 skill-name/
-├── SKILL.md
-├── references/
-├── scripts/
-├── assets/
-└── agents/openai.yaml
+|-- SKILL.md
+|-- references/
+|-- scripts/
+|-- assets/
+`-- agents/openai.yaml
 ```
 
 `SKILL.md` should contain only high-value instructions. Long domain material goes into `references/`, deterministic operations go into `scripts/`, and reusable templates or static files go into `assets/`.
-
-## MVP Modules
-
-1. Builder: create a draft Skill from task examples and source materials.
-2. Linter: check naming, metadata, length, missing files, vague instructions, and unsafe permissions.
-3. Eval Runner: run trigger tests and with-skill vs without-skill task comparisons.
-4. Repair Agent: make bounded edits based on lint and eval failures.
-5. Registry: store Skill versions, scores, dependencies, risk level, and export targets.
 
 ## Quick Start
 
@@ -90,6 +73,29 @@ skill-factory generate \
   --resources references,scripts \
   --output skills
 skill-factory lint skills/release-note-builder
+```
+
+Run local evals after adding `evals/evals.json`:
+
+```bash
+skill-factory eval skills/release-note-builder
+skill-factory eval skills/release-note-builder --json
+skill-factory eval-schema --output docs/eval-schema.json
+```
+
+Register and install a Skill locally:
+
+```bash
+skill-factory registry add skills/release-note-builder --version 0.1.0
+skill-factory registry list
+skill-factory install release-note-builder --target agent-skills
+```
+
+Export directly without a registry:
+
+```bash
+skill-factory export skills/release-note-builder --target codex --output .codex/skills
+skill-factory export skills/release-note-builder --target claude-code --output .claude/skills
 ```
 
 Use a local Ollama model to plan and generate:
@@ -125,6 +131,7 @@ Without installation:
 ```bash
 PYTHONPATH=src python -m skill_factory --version
 PYTHONPATH=src python -m skill_factory lint skills/release-note-builder
+PYTHONPATH=src python -m skill_factory registry list
 ```
 
 Run tests:
@@ -136,9 +143,9 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## Repository Layout
 
 ```text
-src/skill_factory/       Core CLI, generator, linter, LLM providers, and data models
-tests/                   Unit tests for CLI, planning, generation, and linting
-docs/                    Architecture, LLM providers, evaluation, security, and format docs
+src/skill_factory/       Core CLI, generator, linter, evaluator, registry, schemas, and LLM providers
+tests/                   Unit tests for CLI, planning, generation, linting, evals, registry, and schemas
+docs/                    Architecture, LLM providers, evaluation, registry, security, and format docs
 .github/                 CI, issue templates, and PR template
 ROADMAP.md               Development plan and completion table
 ```
@@ -151,40 +158,15 @@ ROADMAP.md               Development plan and completion table
 - [Skill Output Format](docs/skill-output-format.md)
 - [LLM Providers](docs/llm-providers.md)
 - [Evaluation Strategy](docs/evaluation.md)
+- [Eval JSON Schema](docs/eval-schema.json)
+- [Registry and Export](docs/registry.md)
 - [Security Model](docs/security-model.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 
-## Current CLI
-
-```bash
-skill-factory --help
-skill-factory init ./workspace
-skill-factory plan --provider ollama --model llama3.1 --brief "Create a Skill for release notes."
-skill-factory generate --name "Release Note Builder" --brief "Create release notes." --output skills
-skill-factory generate --llm --provider ollama --model llama3.1 --brief "Create release notes." --output skills
-skill-factory lint skills/release-note-builder
-skill-factory eval skills/release-note-builder # after adding evals/evals.json
-```
-
-The generated Skill target is intentionally simple and compatible with Agent Skills-style clients:
-
-```text
-skill-name/
-├── SKILL.md
-├── references/
-├── scripts/
-├── assets/
-└── agents/openai.yaml
-```
-
-## Contributing
-
-Contributions are welcome in small, reviewable changes. Good first areas include lint rules, fixture Skills, eval file formats, CLI ergonomics, and documentation examples. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
 ## Security
 
-Generated Skills can influence agent behavior and tool use. Treat all generated Skills as untrusted until linted and evaluated. See [SECURITY.md](SECURITY.md) and [Security Model](docs/security-model.md).
+Generated Skills can influence agent behavior and tool use. Treat all generated or imported Skills as untrusted until they pass lint and eval. See [SECURITY.md](SECURITY.md) and [Security Model](docs/security-model.md).
 
 ## License
 
