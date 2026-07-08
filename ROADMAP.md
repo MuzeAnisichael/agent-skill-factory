@@ -2,51 +2,70 @@
 
 Agent Skill Factory is developed in small, testable milestones. The near-term goal is a reliable local CLI before any hosted service or marketplace work.
 
+Current version target completed in this repository: `v0.3.0`.
+
 ## Completion Summary
 
 | Milestone | Status | Completion | Evidence | Next Step |
 |---|---:|---:|---|---|
 | M0 Repository and spec | Done | 100% | README, docs, MIT license, security model | Keep docs aligned with implementation |
-| M1 Local CLI skeleton | Done | 100% | `skill-factory init`, `generate`, `lint` | Improve CLI UX and examples |
-| M1.5 LLM planning | Done | 100% | `skill-factory plan`, `generate --llm`, Ollama and OpenAI-compatible clients | Add streamed output and richer plan validation |
-| M2 Static linter | In progress | 65% | Naming, frontmatter, resource, risk, syntax checks | Add fixture-based rule coverage and configurable policies |
-| M3 Eval runner | In progress | 50% | `skill-factory eval`, local trigger evals, task assertions, schema validation, fixture coverage | Add Agent-backed baseline evals and richer reports |
+| M1 Local CLI skeleton | Done | 100% | `skill-factory init`, `generate`, `lint` | Improve CLI ergonomics |
+| M1.5 LLM planning | Done | 100% | `plan`, `generate --llm`, Ollama and OpenAI-compatible clients | Add provider health checks and richer errors |
+| M2 Static linter | In progress | 70% | Naming, frontmatter, resource, risk, syntax checks | Add policy profiles and broader unsafe-pattern coverage |
+| M3 Local eval runner | In progress | 60% | `eval`, trigger evals, task assertions, strict schema validation, JSON Schema | Add Agent-backed baseline evals and Markdown reports |
+| M3.5 Local registry and export | Done | 100% | `registry add/list/show`, `export`, `install`, source hashes, risk and eval metadata | Add signing and trust policies later |
 | M4 Repair loop | Planned | 0% | Architecture documented | Add bounded repair plan format |
-| M5 Registry and export | Planned | 0% | Registry shape documented | Implement local registry index |
+| M5 Source and trace ingestion | Planned | 0% | Architecture documented | Convert docs/code/traces into structured Skill inputs |
 | M6 Hosted/web surface | Later | 0% | Out of initial scope | Revisit after CLI is useful |
 
-## Development Plan
+## v0.3.0 Scope
 
-### Phase 1: Local Skill Factory
+Completed:
 
-Goal: make local Skill generation and validation dependable.
+- Publish `docs/eval-schema.json` for eval file editor/tool integration.
+- Add `skill-factory eval-schema`.
+- Add a local file-based registry at `.skill-factory/registry.json`.
+- Record Skill metadata, version, path, risk summary, eval status, package hash, and file hashes.
+- Add `skill-factory registry add/list/show`.
+- Add `skill-factory export` for direct Skill package export.
+- Add `skill-factory install` for registry-based installation.
+- Support `agent-skills`, `codex`, and `claude-code` export targets.
+- Add unit tests for registry, export/install, CLI, and schema stability.
+- Update README and docs for the implemented lifecycle.
 
-- Generate a standards-aligned Skill package from a structured brief.
-- Validate `SKILL.md` frontmatter, naming, body length, resource references, and unsafe instructions.
-- Produce human-readable and JSON lint reports.
-- Keep runtime dependencies at zero unless a dependency is clearly justified.
+Not included in v0.3:
 
-Current status: partially complete. The CLI, writer, and initial linter are implemented.
+- Hosted registry.
+- Package signing.
+- Dependency resolution between Skills.
+- Real Agent runtime evals.
+- Automatic repair loop.
 
-### Phase 2: Evaluation Runner
+## v0.4 Development Plan
 
-Goal: prove whether a Skill improves Agent behavior.
+Goal: make evals measure actual Agent behavior, not only package text.
 
-- Add an `evals/evals.json` convention. Done.
-- Support trigger evals with should-trigger and should-not-trigger cases. Done for local rules.
-- Support task evals with assertions. Done for package text assertions.
-- Compare without-skill vs with-skill runs through a runner abstraction.
-- Emit human-readable and JSON reports. JSON and console reports are implemented.
+Planned work:
+
+- Add a runner abstraction for task execution.
+- Add a local dry-run runner for deterministic tests.
+- Add optional LLM/Agent-backed runner integration.
+- Compare without-skill vs with-skill outputs.
+- Emit Markdown eval reports for review.
+- Add regression gates for old Skill vs new Skill.
 
 Acceptance criteria:
 
 - A sample Skill can show measurable improvement over baseline.
 - Failed evals produce actionable diagnostics.
-- Eval fixtures run in CI.
+- Eval fixtures run in CI without external network requirements.
+- Optional model-backed evals are skipped unless explicitly configured.
 
-### Phase 3: Repair Loop
+## v0.5 Development Plan
 
 Goal: make generated Skills iteratively better without rewriting them blindly.
+
+Planned work:
 
 - Convert lint and eval failures into bounded edit plans.
 - Apply small changes to `SKILL.md` or resource files.
@@ -59,43 +78,30 @@ Acceptance criteria:
 - The system can split oversized body content into `references/`.
 - The system refuses changes that increase risk without approval.
 
-### Phase 4: Local Registry and Export
-
-Goal: make Skills manageable across projects and Agent clients.
-
-- Add a file-based registry index.
-- Track version, risk level, source hashes, eval score, and export targets.
-- Export to `.agents/skills/`.
-- Add adapters for `.claude/skills/` and Codex-style user skill directories.
-
-Acceptance criteria:
-
-- Users can generate, lint, register, and install a Skill locally.
-- Registry metadata is deterministic and reviewable.
-
 ## Detailed Completion Table
 
 | Component | Done | Remaining |
 |---|---|---|
-| CLI command structure | `init`, `generate`, `lint`, `eval` | `repair`, `registry`, `export` |
-| Eval command | `eval` with default `evals/evals.json`, `--json`, `--eval-file`, `--no-lint` | Agent-backed baseline evals and Markdown reports |
-| Eval validation | Internal schema validation for eval files | Published JSON Schema document and editor integration |
+| CLI command structure | `init`, `plan`, `generate`, `lint`, `eval`, `eval-schema`, `registry`, `export`, `install` | `repair`, runner-backed eval commands, ingestion commands |
+| Eval command | Default `evals/evals.json`, `--json`, `--eval-file`, `--no-lint` | Agent-backed baseline evals and Markdown reports |
+| Eval validation | Internal validation plus published `docs/eval-schema.json` | Editor examples and schema-version migration policy |
 | LLM provider layer | Ollama and OpenAI-compatible providers | Provider health checks, streaming, richer errors |
 | Skill planning | LLM-generated structured `SkillPlan` | Plan validation, source attribution, confidence reporting |
 | Skill writer | `SKILL.md`, `agents/openai.yaml`, optional resource dirs | Better templates, source attribution, deterministic plan files |
 | Naming rules | Hyphen-case normalization and validation | Configurable naming policies |
 | Frontmatter parser | Minimal YAML-like parsing for simple metadata | More robust diagnostics and line numbers |
 | Linter | Description, folder match, body length, missing resources, dangerous patterns | Policy profiles, more unsafe patterns, duplicate-content checks |
-| Tests | Unit tests for CLI, generation, linter, naming, LLM planning, and local eval | Fixture matrix and CI coverage expansion |
-| Documentation | Architecture, format, eval, security, roadmap | More examples and contributor walkthroughs |
-| CI | Workflow file added | Badges turn green after first GitHub Actions run |
+| Local registry | JSON registry, source hashes, risk/eval metadata | Signing, trust policy, dependency metadata |
+| Export/install | Direct export and registry-based install to local client directories | Packaged archives and hosted registry adapters |
+| Tests | Unit tests for CLI, generation, linter, naming, LLM planning, local eval, registry, schema | Fixture matrix and CI coverage expansion |
+| Documentation | Architecture, format, eval, registry, security, roadmap, bilingual README | Contributor walkthroughs and more examples |
+| CI | Workflow file added | Add lint/type checks when tool choices stabilize |
 
 ## Prioritized Backlog
 
-1. Add fixture Skills under `tests/fixtures/`.
-2. Publish JSON Schema for eval files.
-3. Add Agent-backed baseline evals.
-4. Add policy profiles for lint strictness.
-5. Implement local registry metadata.
-6. Add export adapters.
-7. Add repair-loop prototype.
+1. Add Agent-backed eval runner abstraction.
+2. Add Markdown eval reports.
+3. Add lint policy profiles.
+4. Add repair-loop prototype.
+5. Add source/document ingestion into structured Skill inputs.
+6. Add signed export packages and registry trust policy.
