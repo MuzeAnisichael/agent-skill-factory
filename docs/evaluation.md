@@ -1,59 +1,115 @@
 # Evaluation Strategy
 
-A Skill is useful only if it improves Agent behavior. Evaluation must compare behavior with and without the Skill.
+A Skill is useful only if it improves Agent behavior. The project now includes an initial local eval runner. It is intentionally lightweight: it validates trigger behavior and task assertions against the Skill package before future Agent-backed evals are added.
 
-## Eval Types
+## Current Command
 
-### Trigger Eval
-
-Tests whether the Skill activates on relevant prompts and stays inactive on near-misses.
-
-```json
-[
-  {
-    "query": "Generate a release note from this repo's merged PRs.",
-    "should_trigger": true
-  },
-  {
-    "query": "Explain what release notes are.",
-    "should_trigger": false
-  }
-]
+```bash
+skill-factory eval path/to/skill
+skill-factory eval path/to/skill --json
+skill-factory eval path/to/skill --eval-file path/to/evals.json
+skill-factory eval path/to/skill --no-lint
 ```
 
-### Task Eval
+Default eval path:
 
-Tests whether the Skill helps complete realistic work.
+```text
+<skill>/evals/evals.json
+```
+
+## Eval File Shape
 
 ```json
 {
-  "id": "release-note-basic",
-  "prompt": "Create release notes for the current branch.",
-  "expected_output": "A concise release note with features, fixes, and risks.",
-  "files": [],
-  "assertions": [
-    "The output includes a features section.",
-    "The output cites concrete changes.",
-    "The output does not invent unrelated work."
+  "trigger_tests": [
+    {
+      "id": "release-notes-from-prs",
+      "query": "Create release notes from the merged pull requests.",
+      "should_trigger": true,
+      "keywords": ["release notes", "pull requests"]
+    },
+    {
+      "id": "explain-git",
+      "query": "Explain what git is.",
+      "should_trigger": false,
+      "keywords": ["release notes", "pull requests"]
+    }
+  ],
+  "task_tests": [
+    {
+      "id": "contains-required-sections",
+      "prompt": "Create release notes for the current branch.",
+      "assertions": [
+        {"target": "body", "contains": "features"},
+        {"target": "body", "contains": "fixes"},
+        {"target": "body", "not_contains": "rm -rf"}
+      ]
+    }
   ]
 }
 ```
 
+## Current Eval Types
+
+### Trigger Eval
+
+Checks whether a Skill should activate for a query.
+
+Supported fields:
+
+- `id`: stable case identifier.
+- `query`: user request.
+- `should_trigger`: expected boolean.
+- `keywords`: optional positive keywords checked against the query.
+- `negative_keywords`: optional negative keywords.
+
+When `keywords` is omitted, the runner uses a simple word-overlap fallback between query and Skill text. This is not a substitute for model-based trigger classification, but it catches weak trigger descriptions early.
+
+### Task Eval
+
+Checks whether the Skill package contains required content.
+
+Supported assertion forms:
+
+```json
+{"target": "body", "contains": "features"}
+{"target": "body", "not_contains": "rm -rf"}
+{"target": "text", "any_contains": ["features", "enhancements"]}
+{"target": "description", "all_contains": ["release", "notes"]}
+```
+
+Targets:
+
+- `text`: frontmatter name, description, and body.
+- `description`: frontmatter description.
+- `body`: `SKILL.md` body.
+
+### Lint Aggregation
+
+By default, `skill-factory eval` also runs static lint and fails the report if lint has errors. Use `--no-lint` for isolated eval debugging.
+
+## Planned Eval Types
+
 ### Baseline Eval
 
-Runs each task twice:
+Future runner behavior:
 
-- without Skill
-- with Skill
+- Run each task without the Skill.
+- Run the same task with the Skill.
+- Compare quality, latency, tool calls, and safety.
 
-For revisions, compare:
+For revisions:
 
-- old Skill
-- new Skill
+- Compare old Skill vs new Skill.
+- Block regressions on held-out evals.
+
+### Agent-Backed Eval
+
+Future support should integrate with actual Agent runtimes so the runner can evaluate behavior instead of only package text.
 
 ### Safety Eval
 
-Attempts to trigger unsafe behavior:
+Future safety evals should attempt to trigger:
 
 - Broad file deletion.
 - Secret exfiltration.
@@ -62,6 +118,15 @@ Attempts to trigger unsafe behavior:
 - Unapproved shell commands.
 
 ## Metrics
+
+Current:
+
+- Trigger pass/fail.
+- Task assertion pass/fail.
+- Lint pass/fail.
+- Total passed and failed cases.
+
+Planned:
 
 - Trigger precision and recall.
 - Task pass rate.
@@ -76,6 +141,7 @@ Attempts to trigger unsafe behavior:
 A generated or repaired Skill should be accepted only when:
 
 - It passes static lint.
-- It improves or preserves held-out eval score.
+- It passes local evals.
+- It improves or preserves held-out eval score once baseline eval is available.
 - It does not increase risk level without explicit approval.
 - It does not materially increase token cost without quality gain.
