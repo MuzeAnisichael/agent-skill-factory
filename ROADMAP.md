@@ -10,7 +10,7 @@ Agent Skill Factory is developed in small, testable milestones. The near-term go
 | M1 Local CLI skeleton | Done | 100% | `skill-factory init`, `generate`, `lint` | Improve CLI UX and examples |
 | M1.5 LLM planning | Done | 100% | `skill-factory plan`, `generate --llm`, Ollama and OpenAI-compatible clients | Add streamed output and richer plan validation |
 | M2 Static linter | In progress | 65% | Naming, frontmatter, resource, risk, syntax checks | Add fixture-based rule coverage and configurable policies |
-| M3 Eval runner | In progress | 45% | `skill-factory eval`, local trigger evals, task assertions, fixture coverage | Add Agent-backed baseline evals and richer reports |
+| M3 Eval runner | In progress | 50% | `skill-factory eval`, local trigger evals, task assertions, schema validation, fixture coverage | Add Agent-backed baseline evals and richer reports |
 | M4 Repair loop | Planned | 0% | Architecture documented | Add bounded repair plan format |
 | M5 Registry and export | Planned | 0% | Registry shape documented | Implement local registry index |
 | M6 Hosted/web surface | Later | 0% | Out of initial scope | Revisit after CLI is useful |
@@ -79,6 +79,7 @@ Acceptance criteria:
 |---|---|---|
 | CLI command structure | `init`, `generate`, `lint`, `eval` | `repair`, `registry`, `export` |
 | Eval command | `eval` with default `evals/evals.json`, `--json`, `--eval-file`, `--no-lint` | Agent-backed baseline evals and Markdown reports |
+| Eval validation | Internal schema validation for eval files | Published JSON Schema document and editor integration |
 | LLM provider layer | Ollama and OpenAI-compatible providers | Provider health checks, streaming, richer errors |
 | Skill planning | LLM-generated structured `SkillPlan` | Plan validation, source attribution, confidence reporting |
 | Skill writer | `SKILL.md`, `agents/openai.yaml`, optional resource dirs | Better templates, source attribution, deterministic plan files |
@@ -92,7 +93,7 @@ Acceptance criteria:
 ## Prioritized Backlog
 
 1. Add fixture Skills under `tests/fixtures/`.
-2. Add JSON schema for eval files.
+2. Publish JSON Schema for eval files.
 3. Add Agent-backed baseline evals.
 4. Add policy profiles for lint strictness.
 5. Implement local registry metadata.
