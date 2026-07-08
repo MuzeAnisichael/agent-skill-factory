@@ -16,7 +16,7 @@ Agent Skill Factory 是一个开源工具链，用于生成、校验和发布可
 
 ## 项目状态
 
-项目目前处于早期 alpha 阶段。当前已经具备一个本地 Python CLI，可以初始化工作区、生成 Skill 草案、调用本地或 API 大模型进行结构化规划，并对 Skill 质量和安全风险进行 lint 检查。
+项目目前处于早期 alpha 阶段。当前已经具备一个本地 Python CLI，可以初始化工作区、生成 Skill 草案、调用本地或 API 大模型进行结构化规划，对 Skill 质量和安全风险进行 lint 检查，并运行本地 eval。
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
@@ -24,7 +24,7 @@ Agent Skill Factory 是一个开源工具链，用于生成、校验和发布可
 | Skill 包写入器 | 已完成 | 可生成 `SKILL.md`、可选资源目录和 `agents/openai.yaml`。 |
 | LLM 规划 | 已完成 | 支持本地 Ollama 和 OpenAI-compatible API，生成结构化 `SkillPlan`。 |
 | 静态 Linter | 进行中 | 已覆盖命名、frontmatter、资源缺失、危险指令和 Python 脚本语法。 |
-| Eval Runner | 计划中 | 下一步支持触发测试和 with-skill vs without-skill 对比。 |
+| Eval Runner | 进行中 | 已实现本地触发测试和任务断言测试；下一步是 Agent-backed baseline eval。 |
 | Repair Loop | 计划中 | 根据 lint/eval 失败进行受控自动修复。 |
 | Registry 和导出 | 计划中 | 本地注册表、版本元数据和安装适配器。 |
 
@@ -164,6 +164,7 @@ skill-factory plan --provider ollama --model llama3.1 --brief "Create a Skill fo
 skill-factory generate --name "Release Note Builder" --brief "Create release notes." --output skills
 skill-factory generate --llm --provider ollama --model llama3.1 --brief "Create release notes." --output skills
 skill-factory lint skills/release-note-builder
+skill-factory eval skills/release-note-builder # 添加 evals/evals.json 后运行
 ```
 
 生成的 Skill 目标结构保持简单，并兼容 Agent Skills 风格客户端：
