@@ -9,6 +9,8 @@ skill-factory eval path/to/skill
 skill-factory eval path/to/skill --json
 skill-factory eval path/to/skill --eval-file path/to/evals.json
 skill-factory eval path/to/skill --no-lint
+skill-factory eval-schema
+skill-factory eval-schema --output docs/eval-schema.json
 ```
 
 Default eval path:
@@ -52,6 +54,8 @@ Default eval path:
 ## Schema Validation
 
 The eval runner validates configuration before executing cases. Invalid eval files fail fast with `EvalError`.
+
+The published JSON Schema lives at [`docs/eval-schema.json`](eval-schema.json). Use `skill-factory eval-schema` to print the same schema from the installed package, or `--output` to write it for editor integration.
 
 Top-level keys:
 
