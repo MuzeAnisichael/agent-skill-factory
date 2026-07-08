@@ -1,0 +1,155 @@
+{
+  "$defs": {
+    "assertionObject": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "contains"
+          ]
+        },
+        {
+          "required": [
+            "not_contains"
+          ]
+        },
+        {
+          "required": [
+            "any_contains"
+          ]
+        },
+        {
+          "required": [
+            "all_contains"
+          ]
+        }
+      ],
+      "properties": {
+        "all_contains": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "any_contains": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "contains": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "not_contains": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target": {
+          "default": "text",
+          "enum": [
+            "text",
+            "description",
+            "body"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "nonEmptyString": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "type": "string"
+    },
+    "nonEmptyStringArray": {
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "taskTest": {
+      "additionalProperties": false,
+      "properties": {
+        "assertions": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              {
+                "$ref": "#/$defs/assertionObject"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "assertions"
+      ],
+      "type": "object"
+    },
+    "triggerTest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "keywords": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "negative_keywords": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "query": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "should_trigger": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "query",
+        "should_trigger"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/MuzeAnisichael/agent-skill-factory/blob/main/docs/eval-schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "anyOf": [
+    {
+      "required": [
+        "trigger_tests"
+      ]
+    },
+    {
+      "required": [
+        "task_tests"
+      ]
+    }
+  ],
+  "description": "Schema for <skill>/evals/evals.json files used by skill-factory eval.",
+  "properties": {
+    "task_tests": {
+      "items": {
+        "$ref": "#/$defs/taskTest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "trigger_tests": {
+      "items": {
+        "$ref": "#/$defs/triggerTest"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "title": "Agent Skill Factory Eval File",
+  "type": "object"
+}
