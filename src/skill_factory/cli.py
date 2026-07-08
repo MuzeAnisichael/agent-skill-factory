@@ -13,6 +13,18 @@ from .llm import LLMError, create_llm_client
 from .models import SkillPlan
 from .naming import normalize_skill_name
 from .planner import plan_skill_with_llm, skill_plan_to_dict
+from .registry import (
+    DEFAULT_REGISTRY_PATH,
+    EXPORT_TARGETS,
+    RegistryError,
+    export_skill,
+    format_registry_list,
+    install_registered_skill,
+    list_registry_entries,
+    load_registry,
+    register_skill,
+)
+from .schemas import eval_schema_json
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -95,6 +107,84 @@ def build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("--json", action="store_true", help="Print a JSON eval report.")
     eval_parser.add_argument("--no-lint", action="store_true", help="Skip lint aggregation during eval.")
     eval_parser.set_defaults(func=_cmd_eval)
+
+    registry_parser = subparsers.add_parser("registry", help="Manage the local Skill registry.")
+    registry_subparsers = registry_parser.add_subparsers(required=True)
+
+    registry_add_parser = registry_subparsers.add_parser("add", help="Add or update a Skill registry entry.")
+    registry_add_parser.add_argument("skill", type=Path, help="Skill directory or SKILL.md file.")
+    registry_add_parser.add_argument(
+        "--registry",
+        type=Path,
+        default=DEFAULT_REGISTRY_PATH,
+        help="Registry JSON path. Defaults to .skill-factory/registry.json.",
+    )
+    registry_add_parser.add_argument("--version", default="0.1.0", help="Skill version to record.")
+    registry_add_parser.add_argument("--skip-eval", action="store_true", help="Do not inspect eval results.")
+    registry_add_parser.add_argument(
+        "--allow-failing",
+        action="store_true",
+        help="Register even when lint or eval checks fail.",
+    )
+    registry_add_parser.add_argument("--json", action="store_true", help="Print the registered entry as JSON.")
+    registry_add_parser.set_defaults(func=_cmd_registry_add)
+
+    registry_list_parser = registry_subparsers.add_parser("list", help="List registered Skills.")
+    registry_list_parser.add_argument(
+        "--registry",
+        type=Path,
+        default=DEFAULT_REGISTRY_PATH,
+        help="Registry JSON path. Defaults to .skill-factory/registry.json.",
+    )
+    registry_list_parser.add_argument("--json", action="store_true", help="Print registry entries as JSON.")
+    registry_list_parser.set_defaults(func=_cmd_registry_list)
+
+    registry_show_parser = registry_subparsers.add_parser("show", help="Show one registered Skill.")
+    registry_show_parser.add_argument("name", help="Registered Skill name.")
+    registry_show_parser.add_argument(
+        "--registry",
+        type=Path,
+        default=DEFAULT_REGISTRY_PATH,
+        help="Registry JSON path. Defaults to .skill-factory/registry.json.",
+    )
+    registry_show_parser.add_argument("--json", action="store_true", help="Print the entry as JSON.")
+    registry_show_parser.set_defaults(func=_cmd_registry_show)
+
+    export_parser = subparsers.add_parser("export", help="Export a Skill package to a client directory.")
+    export_parser.add_argument("skill", type=Path, help="Skill directory or SKILL.md file.")
+    export_parser.add_argument(
+        "--target",
+        choices=EXPORT_TARGETS,
+        default="agent-skills",
+        help="Client layout target.",
+    )
+    export_parser.add_argument("--output", type=Path, help="Destination skills directory.")
+    export_parser.add_argument("--force", action="store_true", help="Overwrite an existing exported Skill.")
+    export_parser.add_argument("--json", action="store_true", help="Print export result as JSON.")
+    export_parser.set_defaults(func=_cmd_export)
+
+    install_parser = subparsers.add_parser("install", help="Install a registered Skill to a client directory.")
+    install_parser.add_argument("name", help="Registered Skill name.")
+    install_parser.add_argument(
+        "--registry",
+        type=Path,
+        default=DEFAULT_REGISTRY_PATH,
+        help="Registry JSON path. Defaults to .skill-factory/registry.json.",
+    )
+    install_parser.add_argument(
+        "--target",
+        choices=EXPORT_TARGETS,
+        default="agent-skills",
+        help="Client layout target.",
+    )
+    install_parser.add_argument("--output", type=Path, help="Destination skills directory.")
+    install_parser.add_argument("--force", action="store_true", help="Overwrite an existing installed Skill.")
+    install_parser.add_argument("--json", action="store_true", help="Print install result as JSON.")
+    install_parser.set_defaults(func=_cmd_install)
+
+    eval_schema_parser = subparsers.add_parser("eval-schema", help="Print or write the eval JSON Schema.")
+    eval_schema_parser.add_argument("--output", type=Path, help="Write the schema to a file instead of stdout.")
+    eval_schema_parser.set_defaults(func=_cmd_eval_schema)
 
     return parser
 
@@ -182,6 +272,103 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     else:
         print(format_eval_report(report))
     return 0 if report.passed else 1
+
+
+def _cmd_registry_add(args: argparse.Namespace) -> int:
+    try:
+        entry = register_skill(
+            skill_path=args.skill,
+            registry_path=args.registry,
+            version=args.version,
+            include_eval=not args.skip_eval,
+            allow_failing=args.allow_failing,
+        )
+    except RegistryError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if args.json:
+        print(json.dumps(entry, indent=2, sort_keys=True))
+    else:
+        print(f"Registered {entry['name']} {entry['version']} in {args.registry}")
+    return 0
+
+
+def _cmd_registry_list(args: argparse.Namespace) -> int:
+    try:
+        registry = load_registry(args.registry)
+    except RegistryError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    entries = list_registry_entries(registry)
+    if args.json:
+        print(json.dumps(entries, indent=2, sort_keys=True))
+    else:
+        print(format_registry_list(entries))
+    return 0
+
+
+def _cmd_registry_show(args: argparse.Namespace) -> int:
+    try:
+        registry = load_registry(args.registry)
+    except RegistryError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    entry = registry.get("skills", {}).get(args.name)
+    if not entry:
+        raise SystemExit(f"Skill is not registered: {args.name}")
+    if args.json:
+        print(json.dumps(entry, indent=2, sort_keys=True))
+    else:
+        print(format_registry_list([entry]))
+    return 0
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    try:
+        destination = export_skill(
+            skill_path=args.skill,
+            output_dir=args.output,
+            target=args.target,
+            force=args.force,
+        )
+    except RegistryError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if args.json:
+        print(json.dumps({"path": str(destination), "target": args.target}, indent=2, sort_keys=True))
+    else:
+        print(f"Exported Skill to {destination}")
+    return 0
+
+
+def _cmd_install(args: argparse.Namespace) -> int:
+    try:
+        destination = install_registered_skill(
+            name=args.name,
+            registry_path=args.registry,
+            output_dir=args.output,
+            target=args.target,
+            force=args.force,
+        )
+    except RegistryError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if args.json:
+        print(json.dumps({"path": str(destination), "target": args.target}, indent=2, sort_keys=True))
+    else:
+        print(f"Installed Skill to {destination}")
+    return 0
+
+
+def _cmd_eval_schema(args: argparse.Namespace) -> int:
+    schema = eval_schema_json()
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(schema, encoding="utf-8")
+        print(f"Wrote eval schema to {args.output}")
+    else:
+        print(schema, end="")
+    return 0
 
 
 def _read_brief(args: argparse.Namespace) -> str:
