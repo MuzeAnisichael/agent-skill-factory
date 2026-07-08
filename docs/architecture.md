@@ -135,6 +135,32 @@ Stores generated Skills and metadata:
 }
 ```
 
+The current local implementation stores this metadata in `.skill-factory/registry.json`.
+It records:
+
+- frontmatter name and description
+- local package path
+- user-supplied version
+- lint-derived risk summary
+- eval status when `evals/evals.json` exists
+- deterministic package and file SHA-256 hashes
+
+The registry stores metadata only. The source Skill directory remains the source of truth.
+
+### 8. Export / Install
+
+The current implementation can copy a Skill package into client-oriented skill directories:
+
+| Target | Default destination |
+|---|---|
+| `agent-skills` | `.agents/skills/` |
+| `codex` | `.codex/skills/` |
+| `claude-code` | `.claude/skills/` |
+
+`export` copies a direct Skill path. `install` resolves a registered Skill name and then exports it.
+
+Future work should add signed packages, dependency metadata, and trust-policy checks before hosted registry support.
+
 ## Deployment Shape
 
 Phase 1 should be a local CLI. Later phases can add:
