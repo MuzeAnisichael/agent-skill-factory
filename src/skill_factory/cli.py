@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Sequence
 
 from . import __version__
+from .evaluator import EvalError, eval_report_to_json, evaluate_skill, format_eval_report
 from .generator import RESOURCE_DIRS, create_skill
 from .linter import format_report, lint_skill, report_to_json
 from .llm import LLMError, create_llm_client
@@ -84,6 +85,17 @@ def build_parser() -> argparse.ArgumentParser:
     lint_parser.add_argument("--max-lines", type=int, default=500, help="Maximum SKILL.md body line count.")
     lint_parser.set_defaults(func=_cmd_lint)
 
+    eval_parser = subparsers.add_parser("eval", help="Run local evals for a Skill package.")
+    eval_parser.add_argument("skill", type=Path, help="Skill directory or SKILL.md file.")
+    eval_parser.add_argument(
+        "--eval-file",
+        type=Path,
+        help="Eval JSON file. Defaults to <skill>/evals/evals.json.",
+    )
+    eval_parser.add_argument("--json", action="store_true", help="Print a JSON eval report.")
+    eval_parser.add_argument("--no-lint", action="store_true", help="Skip lint aggregation during eval.")
+    eval_parser.set_defaults(func=_cmd_eval)
+
     return parser
 
 
@@ -153,6 +165,23 @@ def _cmd_lint(args: argparse.Namespace) -> int:
     else:
         print("\n\n".join(format_report(report) for report in reports))
     return 1 if any(not report.passed for report in reports) else 0
+
+
+def _cmd_eval(args: argparse.Namespace) -> int:
+    try:
+        report = evaluate_skill(
+            skill_path=args.skill,
+            eval_path=args.eval_file,
+            include_lint=not args.no_lint,
+        )
+    except EvalError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if args.json:
+        print(eval_report_to_json(report))
+    else:
+        print(format_eval_report(report))
+    return 0 if report.passed else 1
 
 
 def _read_brief(args: argparse.Namespace) -> str:
