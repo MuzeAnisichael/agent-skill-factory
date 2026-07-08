@@ -16,6 +16,7 @@ The project follows a simple pre-release changelog until versioned releases begi
 - LLM provider documentation.
 - Bilingual README support with English and Simplified Chinese entry points.
 - Initial `skill-factory eval` command with local trigger evals, task assertions, JSON reports, and fixture tests.
+- Strict eval configuration validation with clearer schema errors.
 - Skill package writer for `SKILL.md`, optional resource directories, and `agents/openai.yaml`.
 - Static linter for Skill metadata, naming, resource references, unsafe instructions, and Python script syntax.
 - Unit tests for CLI, generation, linting, and naming.
