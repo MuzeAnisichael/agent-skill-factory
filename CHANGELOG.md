@@ -9,6 +9,11 @@ The project follows a simple pre-release changelog until versioned releases begi
 ### Added
 
 - Initial local CLI with `init`, `generate`, and `lint`.
+- LLM planning via `skill-factory plan`.
+- `generate --llm` mode for creating a structured `SkillPlan` before deterministic file generation.
+- Local Ollama provider using `/api/chat`.
+- OpenAI-compatible API provider using `/v1/chat/completions`.
+- LLM provider documentation.
 - Skill package writer for `SKILL.md`, optional resource directories, and `agents/openai.yaml`.
 - Static linter for Skill metadata, naming, resource references, unsafe instructions, and Python script syntax.
 - Unit tests for CLI, generation, linting, and naming.
