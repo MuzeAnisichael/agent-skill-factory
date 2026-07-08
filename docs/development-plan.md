@@ -82,6 +82,8 @@ Exit criteria:
 
 - A Skill can prove improvement over a baseline on at least one small eval set.
 
+Status: local eval implementation is complete for trigger cases, task assertions, strict configuration validation, JSON reports, and published JSON Schema. Baseline Agent-backed evals remain planned.
+
 ## Milestone 4: Repair Loop
 
 Deliverables:
@@ -109,6 +111,8 @@ Exit criteria:
 
 - Users can generate, validate, version, and install a Skill locally.
 
+Status: local registry and export/install implementation complete in `v0.3.0`. Hosted registry, signing, dependency policy, and trust-policy checks remain future work.
+
 ## Implementation Bias
 
 Start with Python for the CLI and validation tooling. Keep the core package small, file-based, and testable. Avoid introducing a database until the registry needs concurrent users or hosted collaboration.
@@ -126,10 +130,10 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 | Workstream | Current State | Completion |
 |---|---|---:|
 | Repository presentation | README, license, security, contributing, support, changelog, CI, templates | 100% |
-| CLI foundation | `init`, `generate`, `lint` | 100% |
+| CLI foundation | `init`, `plan`, `generate`, `lint`, `eval`, `eval-schema`, `registry`, `export`, `install` | 100% |
 | LLM planning | Ollama and OpenAI-compatible structured `SkillPlan` generation | 100% |
 | Skill generation | Standard folder output with optional resources | 80% |
-| Static linting | Core checks implemented | 65% |
-| Evaluation | Local trigger evals, task assertions, config validation, JSON reports, fixture tests | 50% |
+| Static linting | Core checks implemented | 70% |
+| Evaluation | Local trigger evals, task assertions, config validation, JSON Schema, JSON reports, fixture tests | 60% |
 | Repair loop | Design documented | 0% |
-| Registry/export | Design documented | 0% |
+| Registry/export | Local registry, source hashes, risk/eval metadata, export and install commands | 100% |
