@@ -8,6 +8,14 @@ The project follows a simple pre-release changelog until versioned releases begi
 
 ### Added
 
+- `v0.3.0` local registry and export lifecycle.
+- `skill-factory registry add/list/show` for file-based Skill metadata.
+- `skill-factory export` for direct package export to Agent client directories.
+- `skill-factory install` for registry-based local installation.
+- Source package SHA-256 and per-file hashes in registry entries.
+- Lint-derived risk summaries and optional eval summaries in registry entries.
+- `skill-factory eval-schema` and published `docs/eval-schema.json`.
+- Registry/export documentation and updated v0.3 roadmap.
 - Initial local CLI with `init`, `generate`, and `lint`.
 - LLM planning via `skill-factory plan`.
 - `generate --llm` mode for creating a structured `SkillPlan` before deterministic file generation.
