@@ -9,6 +9,11 @@ from .frontmatter import parse_frontmatter
 from .linter import lint_skill
 
 DEFAULT_EVAL_PATH = Path("evals") / "evals.json"
+TRIGGER_CASE_KEYS = {"id", "query", "should_trigger", "keywords", "negative_keywords"}
+TASK_CASE_KEYS = {"id", "prompt", "assertions"}
+ASSERTION_KEYS = {"target", "contains", "not_contains", "any_contains", "all_contains"}
+ASSERTION_OPERATORS = {"contains", "not_contains", "any_contains", "all_contains"}
+ASSERTION_TARGETS = {"text", "description", "body"}
 
 
 @dataclass(frozen=True)
@@ -126,10 +131,101 @@ def _load_eval_payload(eval_path: Path) -> dict[str, Any]:
         raise EvalError(f"Invalid eval JSON at {eval_path}: {exc.msg}") from exc
     if not isinstance(payload, dict):
         raise EvalError("Eval file must contain a JSON object.")
-    for key in ("trigger_tests", "task_tests"):
-        if key in payload and not isinstance(payload[key], list):
-            raise EvalError(f"{key} must be an array when present.")
+    _validate_eval_payload(payload)
     return payload
+
+
+def _validate_eval_payload(payload: dict[str, Any]) -> None:
+    unknown_keys = set(payload) - {"trigger_tests", "task_tests"}
+    if unknown_keys:
+        raise EvalError(f"Unknown eval top-level keys: {', '.join(sorted(unknown_keys))}.")
+
+    trigger_tests = payload.get("trigger_tests", [])
+    task_tests = payload.get("task_tests", [])
+    if not isinstance(trigger_tests, list):
+        raise EvalError("trigger_tests must be an array when present.")
+    if not isinstance(task_tests, list):
+        raise EvalError("task_tests must be an array when present.")
+    if not trigger_tests and not task_tests:
+        raise EvalError("Eval file must include at least one trigger_tests or task_tests case.")
+
+    for index, case in enumerate(trigger_tests):
+        _validate_trigger_case(case, index)
+    for index, case in enumerate(task_tests):
+        _validate_task_case(case, index)
+
+
+def _validate_trigger_case(case: Any, index: int) -> None:
+    prefix = f"trigger_tests[{index}]"
+    if not isinstance(case, dict):
+        raise EvalError(f"{prefix} must be an object.")
+    _reject_unknown_case_keys(prefix, case, TRIGGER_CASE_KEYS)
+    _require_string(case, "id", prefix)
+    _require_string(case, "query", prefix)
+    if "should_trigger" not in case or not isinstance(case["should_trigger"], bool):
+        raise EvalError(f"{prefix}.should_trigger must be a boolean.")
+    _optional_string_list(case, "keywords", prefix)
+    _optional_string_list(case, "negative_keywords", prefix)
+
+
+def _validate_task_case(case: Any, index: int) -> None:
+    prefix = f"task_tests[{index}]"
+    if not isinstance(case, dict):
+        raise EvalError(f"{prefix} must be an object.")
+    _reject_unknown_case_keys(prefix, case, TASK_CASE_KEYS)
+    _require_string(case, "id", prefix)
+    if "prompt" in case and not isinstance(case["prompt"], str):
+        raise EvalError(f"{prefix}.prompt must be a string when present.")
+    assertions = case.get("assertions")
+    if not isinstance(assertions, list) or not assertions:
+        raise EvalError(f"{prefix}.assertions must be a non-empty array.")
+    for assertion_index, assertion in enumerate(assertions):
+        _validate_assertion(assertion, f"{prefix}.assertions[{assertion_index}]")
+
+
+def _validate_assertion(assertion: Any, prefix: str) -> None:
+    if isinstance(assertion, str):
+        if not assertion.strip():
+            raise EvalError(f"{prefix} must not be an empty string.")
+        return
+    if not isinstance(assertion, dict):
+        raise EvalError(f"{prefix} must be a string or object.")
+    _reject_unknown_case_keys(prefix, assertion, ASSERTION_KEYS)
+    target = assertion.get("target", "text")
+    if not isinstance(target, str) or target not in ASSERTION_TARGETS:
+        raise EvalError(f"{prefix}.target must be one of: {', '.join(sorted(ASSERTION_TARGETS))}.")
+    operators = set(assertion) & ASSERTION_OPERATORS
+    if len(operators) != 1:
+        raise EvalError(f"{prefix} must include exactly one assertion operator.")
+    operator = next(iter(operators))
+    value = assertion[operator]
+    if operator in {"contains", "not_contains"}:
+        if not isinstance(value, str) or not value.strip():
+            raise EvalError(f"{prefix}.{operator} must be a non-empty string.")
+    else:
+        if not isinstance(value, list) or not value:
+            raise EvalError(f"{prefix}.{operator} must be a non-empty string array.")
+        _optional_string_list(assertion, operator, prefix)
+
+
+def _reject_unknown_case_keys(prefix: str, value: dict[str, Any], allowed_keys: set[str]) -> None:
+    unknown_keys = set(value) - allowed_keys
+    if unknown_keys:
+        raise EvalError(f"{prefix} has unknown keys: {', '.join(sorted(unknown_keys))}.")
+
+
+def _require_string(value: dict[str, Any], key: str, prefix: str) -> None:
+    if key not in value or not isinstance(value[key], str) or not value[key].strip():
+        raise EvalError(f"{prefix}.{key} must be a non-empty string.")
+
+
+def _optional_string_list(value: dict[str, Any], key: str, prefix: str) -> None:
+    if key not in value:
+        return
+    if not isinstance(value[key], list) or not all(
+        isinstance(item, str) and item.strip() for item in value[key]
+    ):
+        raise EvalError(f"{prefix}.{key} must be an array of non-empty strings.")
 
 
 def _read_skill_text(skill_dir: Path) -> str:
@@ -158,8 +254,6 @@ def _skill_snapshot(skill_dir: Path, skill_text: str) -> dict[str, str]:
 
 
 def _evaluate_trigger_case(case: Any, skill: dict[str, str]) -> EvalCaseResult:
-    if not isinstance(case, dict):
-        return EvalCaseResult("invalid", "trigger", False, "Case must be an object.")
     case_id = _case_id(case)
     query = _string(case.get("query")).lower()
     should_trigger = bool(case.get("should_trigger"))
@@ -182,12 +276,8 @@ def _evaluate_trigger_case(case: Any, skill: dict[str, str]) -> EvalCaseResult:
 
 
 def _evaluate_task_case(case: Any, skill: dict[str, str]) -> EvalCaseResult:
-    if not isinstance(case, dict):
-        return EvalCaseResult("invalid", "task", False, "Case must be an object.")
     case_id = _case_id(case)
     assertions = case.get("assertions", [])
-    if not isinstance(assertions, list) or not assertions:
-        return EvalCaseResult(case_id, "task", False, "Task case must include assertions.")
 
     failures: list[str] = []
     for index, assertion in enumerate(assertions, start=1):
