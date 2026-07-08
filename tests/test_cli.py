@@ -4,6 +4,8 @@ from pathlib import Path
 
 from skill_factory.cli import main
 
+FIXTURES = Path(__file__).parent / "fixtures" / "skills"
+
 
 class CliTests(unittest.TestCase):
     def test_init_creates_workspace_config(self) -> None:
@@ -36,6 +38,16 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(generate_rc, 0)
             self.assertEqual(lint_rc, 0)
+
+    def test_eval_success_returns_zero(self) -> None:
+        rc = main(["eval", str(FIXTURES / "release-note-builder")])
+
+        self.assertEqual(rc, 0)
+
+    def test_eval_failure_returns_one(self) -> None:
+        rc = main(["eval", str(FIXTURES / "failing-skill"), "--no-lint"])
+
+        self.assertEqual(rc, 1)
 
 
 if __name__ == "__main__":
