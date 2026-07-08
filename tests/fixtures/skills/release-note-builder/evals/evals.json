@@ -1,0 +1,27 @@
+{
+  "trigger_tests": [
+    {
+      "id": "release-notes-from-prs",
+      "query": "Create release notes from the merged pull requests in this repository.",
+      "should_trigger": true,
+      "keywords": ["release notes", "merged pull requests"]
+    },
+    {
+      "id": "explain-git",
+      "query": "Explain what git is at a high level.",
+      "should_trigger": false,
+      "keywords": ["release notes", "pull requests"]
+    }
+  ],
+  "task_tests": [
+    {
+      "id": "contains-required-sections",
+      "prompt": "Create release notes for the current branch.",
+      "assertions": [
+        {"target": "body", "contains": "features"},
+        {"target": "body", "contains": "fixes"},
+        {"target": "body", "not_contains": "rm -rf"}
+      ]
+    }
+  ]
+}
