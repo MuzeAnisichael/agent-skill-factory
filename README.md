@@ -16,7 +16,7 @@ It turns real tasks, documentation, codebases, tool descriptions, and agent trac
 
 ## Project Status
 
-This project is in early alpha. The first working slice is a local Python CLI that can initialize a workspace, generate a draft Skill package, call a local or API-backed LLM for structured planning, and lint Skill quality and safety.
+This project is in early alpha. The first working slice is a local Python CLI that can initialize a workspace, generate a draft Skill package, call a local or API-backed LLM for structured planning, lint Skill quality and safety, and run local evals.
 
 | Area | Status | Notes |
 |---|---|---|
@@ -24,7 +24,7 @@ This project is in early alpha. The first working slice is a local Python CLI th
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
 | LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured SkillPlan generation. |
 | Static linter | In progress | Initial checks cover naming, frontmatter, missing resources, risky instructions, and Python script syntax. |
-| Eval runner | Planned | Trigger and with-skill vs without-skill evals are next. |
+| Eval runner | In progress | Local trigger evals and task assertion evals are implemented. Agent-backed baseline evals are next. |
 | Repair loop | Planned | Bounded auto-fixes based on lint and eval failures. |
 | Registry and export | Planned | Local registry, version metadata, and install adapters. |
 
@@ -164,6 +164,7 @@ skill-factory plan --provider ollama --model llama3.1 --brief "Create a Skill fo
 skill-factory generate --name "Release Note Builder" --brief "Create release notes." --output skills
 skill-factory generate --llm --provider ollama --model llama3.1 --brief "Create release notes." --output skills
 skill-factory lint skills/release-note-builder
+skill-factory eval skills/release-note-builder # after adding evals/evals.json
 ```
 
 The generated Skill target is intentionally simple and compatible with Agent Skills-style clients:
