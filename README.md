@@ -1,5 +1,10 @@
 # Agent Skill Factory
 
+<p align="right">
+  <a href="README.md">English</a> |
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 [![CI](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
@@ -7,11 +12,11 @@
 
 Agent Skill Factory is an open-source toolchain for generating, validating, and publishing reusable Agent Skills.
 
-目标：把真实任务、文档、代码库、工具说明和 Agent 运行 trace 转化为可复用、可评测、可发布的 Skill 包，而不是只生成一段长 prompt。
+It turns real tasks, documentation, codebases, tool descriptions, and agent traces into reusable, testable, publishable Skill packages instead of a single long prompt.
 
 ## Project Status
 
-This project is in early alpha. The first working slice is a local Python CLI that can initialize a workspace, generate a draft Skill package, and lint Skill quality and safety.
+This project is in early alpha. The first working slice is a local Python CLI that can initialize a workspace, generate a draft Skill package, call a local or API-backed LLM for structured planning, and lint Skill quality and safety.
 
 | Area | Status | Notes |
 |---|---|---|
@@ -39,6 +44,7 @@ This repository starts with a lightweight but complete architecture for:
 
 - Generating standard Skill packages.
 - Validating `SKILL.md` structure and triggering quality.
+- Planning Skill packages with local Ollama or OpenAI-compatible APIs.
 - Comparing with-skill vs without-skill task performance.
 - Detecting safety and permission risks.
 - Managing versions in a local or hosted Skill Registry.
@@ -130,9 +136,9 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## Repository Layout
 
 ```text
-src/skill_factory/       Core CLI, generator, linter, and data models
-tests/                   Unit tests for CLI, generation, and linting
-docs/                    Architecture, evaluation, security, and format docs
+src/skill_factory/       Core CLI, generator, linter, LLM providers, and data models
+tests/                   Unit tests for CLI, planning, generation, and linting
+docs/                    Architecture, LLM providers, evaluation, security, and format docs
 .github/                 CI, issue templates, and PR template
 ROADMAP.md               Development plan and completion table
 ```
