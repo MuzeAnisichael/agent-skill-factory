@@ -15,6 +15,7 @@ The project follows a simple pre-release changelog until versioned releases begi
 - OpenAI-compatible API provider using `/v1/chat/completions`.
 - LLM provider documentation.
 - Bilingual README support with English and Simplified Chinese entry points.
+- Initial `skill-factory eval` command with local trigger evals, task assertions, JSON reports, and fixture tests.
 - Skill package writer for `SKILL.md`, optional resource directories, and `agents/openai.yaml`.
 - Static linter for Skill metadata, naming, resource references, unsafe instructions, and Python script syntax.
 - Unit tests for CLI, generation, linting, and naming.
