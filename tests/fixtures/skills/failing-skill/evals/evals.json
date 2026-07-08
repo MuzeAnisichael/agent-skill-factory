@@ -1,0 +1,11 @@
+{
+  "task_tests": [
+    {
+      "id": "missing-required-word",
+      "prompt": "Check for missing content.",
+      "assertions": [
+        {"target": "body", "contains": "nonexistent-required-token"}
+      ]
+    }
+  ]
+}
