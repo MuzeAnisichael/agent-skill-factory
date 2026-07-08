@@ -58,6 +58,13 @@ The planner decides the target resources and how much freedom the Agent should h
 - Medium freedom: preferred patterns and pseudocode.
 - Low freedom: exact scripts or command sequences for fragile operations.
 
+The current implementation has two planning modes:
+
+- Deterministic CLI planning: user-provided `--name`, `--description`, `--brief`, `--resources`, and `--example` are converted into a `SkillPlan`.
+- LLM planning: local Ollama or an OpenAI-compatible API returns a structured JSON `SkillPlan`, then the deterministic generator writes the files.
+
+LLM planning deliberately produces data, not files. This keeps file writes reviewable and makes lint/eval gates easier to enforce.
+
 ### 3. Skill Generator
 
 Creates the Skill package:
