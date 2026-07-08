@@ -49,6 +49,42 @@ Default eval path:
 }
 ```
 
+## Schema Validation
+
+The eval runner validates configuration before executing cases. Invalid eval files fail fast with `EvalError`.
+
+Top-level keys:
+
+- `trigger_tests`
+- `task_tests`
+
+Unknown top-level keys are rejected. At least one trigger or task case is required.
+
+Trigger case fields:
+
+| Field | Required | Type |
+|---|---:|---|
+| `id` | yes | non-empty string |
+| `query` | yes | non-empty string |
+| `should_trigger` | yes | boolean |
+| `keywords` | no | array of non-empty strings |
+| `negative_keywords` | no | array of non-empty strings |
+
+Task case fields:
+
+| Field | Required | Type |
+|---|---:|---|
+| `id` | yes | non-empty string |
+| `prompt` | no | string |
+| `assertions` | yes | non-empty array |
+
+Assertion object fields:
+
+- `target`: optional, one of `text`, `description`, `body`.
+- Exactly one operator is required: `contains`, `not_contains`, `any_contains`, or `all_contains`.
+- `contains` and `not_contains` use a non-empty string.
+- `any_contains` and `all_contains` use a non-empty string array.
+
 ## Current Eval Types
 
 ### Trigger Eval
@@ -125,6 +161,7 @@ Current:
 - Task assertion pass/fail.
 - Lint pass/fail.
 - Total passed and failed cases.
+- Eval configuration validation.
 
 Planned:
 
