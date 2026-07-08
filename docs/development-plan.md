@@ -130,6 +130,6 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 | LLM planning | Ollama and OpenAI-compatible structured `SkillPlan` generation | 100% |
 | Skill generation | Standard folder output with optional resources | 80% |
 | Static linting | Core checks implemented | 65% |
-| Evaluation | Design documented | 0% |
+| Evaluation | Local trigger evals, task assertions, JSON reports, fixture tests | 45% |
 | Repair loop | Design documented | 0% |
 | Registry/export | Design documented | 0% |
