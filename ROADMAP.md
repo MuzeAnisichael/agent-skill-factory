@@ -8,6 +8,7 @@ Agent Skill Factory is developed in small, testable milestones. The near-term go
 |---|---:|---:|---|---|
 | M0 Repository and spec | Done | 100% | README, docs, MIT license, security model | Keep docs aligned with implementation |
 | M1 Local CLI skeleton | Done | 100% | `skill-factory init`, `generate`, `lint` | Improve CLI UX and examples |
+| M1.5 LLM planning | Done | 100% | `skill-factory plan`, `generate --llm`, Ollama and OpenAI-compatible clients | Add streamed output and richer plan validation |
 | M2 Static linter | In progress | 65% | Naming, frontmatter, resource, risk, syntax checks | Add fixture-based rule coverage and configurable policies |
 | M3 Eval runner | Planned | 0% | Eval strategy documented | Define eval schema and local runner |
 | M4 Repair loop | Planned | 0% | Architecture documented | Add bounded repair plan format |
@@ -77,6 +78,8 @@ Acceptance criteria:
 | Component | Done | Remaining |
 |---|---|---|
 | CLI command structure | `init`, `generate`, `lint` | `eval`, `repair`, `registry`, `export` |
+| LLM provider layer | Ollama and OpenAI-compatible providers | Provider health checks, streaming, richer errors |
+| Skill planning | LLM-generated structured `SkillPlan` | Plan validation, source attribution, confidence reporting |
 | Skill writer | `SKILL.md`, `agents/openai.yaml`, optional resource dirs | Better templates, source attribution, deterministic plan files |
 | Naming rules | Hyphen-case normalization and validation | Configurable naming policies |
 | Frontmatter parser | Minimal YAML-like parsing for simple metadata | More robust diagnostics and line numbers |
