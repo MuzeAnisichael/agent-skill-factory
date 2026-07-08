@@ -127,6 +127,7 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 |---|---|---:|
 | Repository presentation | README, license, security, contributing, support, changelog, CI, templates | 100% |
 | CLI foundation | `init`, `generate`, `lint` | 100% |
+| LLM planning | Ollama and OpenAI-compatible structured `SkillPlan` generation | 100% |
 | Skill generation | Standard folder output with optional resources | 80% |
 | Static linting | Core checks implemented | 65% |
 | Evaluation | Design documented | 0% |
