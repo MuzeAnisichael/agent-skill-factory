@@ -10,7 +10,7 @@ Agent Skill Factory is developed in small, testable milestones. The near-term go
 | M1 Local CLI skeleton | Done | 100% | `skill-factory init`, `generate`, `lint` | Improve CLI UX and examples |
 | M1.5 LLM planning | Done | 100% | `skill-factory plan`, `generate --llm`, Ollama and OpenAI-compatible clients | Add streamed output and richer plan validation |
 | M2 Static linter | In progress | 65% | Naming, frontmatter, resource, risk, syntax checks | Add fixture-based rule coverage and configurable policies |
-| M3 Eval runner | Planned | 0% | Eval strategy documented | Define eval schema and local runner |
+| M3 Eval runner | In progress | 45% | `skill-factory eval`, local trigger evals, task assertions, fixture coverage | Add Agent-backed baseline evals and richer reports |
 | M4 Repair loop | Planned | 0% | Architecture documented | Add bounded repair plan format |
 | M5 Registry and export | Planned | 0% | Registry shape documented | Implement local registry index |
 | M6 Hosted/web surface | Later | 0% | Out of initial scope | Revisit after CLI is useful |
@@ -32,11 +32,11 @@ Current status: partially complete. The CLI, writer, and initial linter are impl
 
 Goal: prove whether a Skill improves Agent behavior.
 
-- Add an `evals/evals.json` convention.
-- Support trigger evals with should-trigger and should-not-trigger cases.
-- Support task evals with assertions.
+- Add an `evals/evals.json` convention. Done.
+- Support trigger evals with should-trigger and should-not-trigger cases. Done for local rules.
+- Support task evals with assertions. Done for package text assertions.
 - Compare without-skill vs with-skill runs through a runner abstraction.
-- Emit Markdown and JSON reports.
+- Emit human-readable and JSON reports. JSON and console reports are implemented.
 
 Acceptance criteria:
 
@@ -77,14 +77,15 @@ Acceptance criteria:
 
 | Component | Done | Remaining |
 |---|---|---|
-| CLI command structure | `init`, `generate`, `lint` | `eval`, `repair`, `registry`, `export` |
+| CLI command structure | `init`, `generate`, `lint`, `eval` | `repair`, `registry`, `export` |
+| Eval command | `eval` with default `evals/evals.json`, `--json`, `--eval-file`, `--no-lint` | Agent-backed baseline evals and Markdown reports |
 | LLM provider layer | Ollama and OpenAI-compatible providers | Provider health checks, streaming, richer errors |
 | Skill planning | LLM-generated structured `SkillPlan` | Plan validation, source attribution, confidence reporting |
 | Skill writer | `SKILL.md`, `agents/openai.yaml`, optional resource dirs | Better templates, source attribution, deterministic plan files |
 | Naming rules | Hyphen-case normalization and validation | Configurable naming policies |
 | Frontmatter parser | Minimal YAML-like parsing for simple metadata | More robust diagnostics and line numbers |
 | Linter | Description, folder match, body length, missing resources, dangerous patterns | Policy profiles, more unsafe patterns, duplicate-content checks |
-| Tests | Unit tests for CLI, generation, linter, naming | Fixture matrix and CI coverage expansion |
+| Tests | Unit tests for CLI, generation, linter, naming, LLM planning, and local eval | Fixture matrix and CI coverage expansion |
 | Documentation | Architecture, format, eval, security, roadmap | More examples and contributor walkthroughs |
 | CI | Workflow file added | Badges turn green after first GitHub Actions run |
 
@@ -92,7 +93,7 @@ Acceptance criteria:
 
 1. Add fixture Skills under `tests/fixtures/`.
 2. Add JSON schema for eval files.
-3. Implement `skill-factory eval`.
+3. Add Agent-backed baseline evals.
 4. Add policy profiles for lint strictness.
 5. Implement local registry metadata.
 6. Add export adapters.
