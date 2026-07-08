@@ -17,6 +17,7 @@ This project is in early alpha. The first working slice is a local Python CLI th
 |---|---|---|
 | Local CLI | Done | `init`, `generate`, and `lint` are implemented. |
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
+| LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured SkillPlan generation. |
 | Static linter | In progress | Initial checks cover naming, frontmatter, missing resources, risky instructions, and Python script syntax. |
 | Eval runner | Planned | Trigger and with-skill vs without-skill evals are next. |
 | Repair loop | Planned | Bounded auto-fixes based on lint and eval failures. |
@@ -85,6 +86,34 @@ skill-factory generate \
 skill-factory lint skills/release-note-builder
 ```
 
+Use a local Ollama model to plan and generate:
+
+```bash
+skill-factory plan \
+  --provider ollama \
+  --model llama3.1 \
+  --brief "Create a Skill for turning merged pull requests into release notes."
+
+skill-factory generate \
+  --llm \
+  --provider ollama \
+  --model llama3.1 \
+  --brief "Create a Skill for turning merged pull requests into release notes." \
+  --resources references,scripts \
+  --output skills
+```
+
+Use an OpenAI-compatible API:
+
+```bash
+skill-factory plan \
+  --provider openai-compatible \
+  --api-base https://api.openai.com/v1 \
+  --api-key "$OPENAI_API_KEY" \
+  --model "$OPENAI_MODEL" \
+  --brief "Create a Skill for reviewing Terraform changes."
+```
+
 Without installation:
 
 ```bash
@@ -114,6 +143,7 @@ ROADMAP.md               Development plan and completion table
 - [Architecture](docs/architecture.md)
 - [Development Plan](docs/development-plan.md)
 - [Skill Output Format](docs/skill-output-format.md)
+- [LLM Providers](docs/llm-providers.md)
 - [Evaluation Strategy](docs/evaluation.md)
 - [Security Model](docs/security-model.md)
 - [Contributing](CONTRIBUTING.md)
@@ -124,7 +154,9 @@ ROADMAP.md               Development plan and completion table
 ```bash
 skill-factory --help
 skill-factory init ./workspace
+skill-factory plan --provider ollama --model llama3.1 --brief "Create a Skill for release notes."
 skill-factory generate --name "Release Note Builder" --brief "Create release notes." --output skills
+skill-factory generate --llm --provider ollama --model llama3.1 --brief "Create release notes." --output skills
 skill-factory lint skills/release-note-builder
 ```
 
