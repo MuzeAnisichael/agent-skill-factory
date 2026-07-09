@@ -23,5 +23,21 @@
         {"target": "body", "not_contains": "rm -rf"}
       ]
     }
+  ],
+  "runner_tests": [
+    {
+      "id": "skill-context-improves-release-note-output",
+      "prompt": "Create release notes for the current branch.",
+      "assertions": [
+        {"target": "output", "contains": "features section"},
+        {"target": "output", "contains": "fixes section"},
+        {"target": "output", "contains": "migration risks"}
+      ],
+      "baseline_assertions": [
+        {"target": "output", "contains": "No Skill context was loaded"}
+      ],
+      "require_improvement": true,
+      "min_score_delta": 3
+    }
   ]
 }
