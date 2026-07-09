@@ -132,6 +132,20 @@ Turns lint and eval failures into bounded edits:
 
 The repair loop should reject edits that do not improve held-out eval scores.
 
+The current implementation includes:
+
+- `repair plan` for reviewable JSON repair plans.
+- `repair apply` for deterministic file edits.
+- Description repair for missing or weak trigger metadata.
+- Missing resource creation.
+- Oversized `SKILL.md` body splitting into `references/overflow.md`.
+- Positive eval assertion repair notes.
+- Lint/eval reruns after repair.
+- Rollback when lint or eval quality regresses.
+- Manual review blocks for security-related findings.
+
+LLM-assisted repair proposals and real Agent runtime scoring remain future work.
+
 ### 7. Skill Registry
 
 Stores generated Skills and metadata:
