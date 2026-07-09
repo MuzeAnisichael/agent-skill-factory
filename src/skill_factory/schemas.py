@@ -22,10 +22,16 @@ EVAL_SCHEMA: dict[str, Any] = {
             "items": {"$ref": "#/$defs/taskTest"},
             "minItems": 1,
         },
+        "runner_tests": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/runnerTest"},
+            "minItems": 1,
+        },
     },
     "anyOf": [
         {"required": ["trigger_tests"]},
         {"required": ["task_tests"]},
+        {"required": ["runner_tests"]},
     ],
     "$defs": {
         "nonEmptyString": {
@@ -62,14 +68,50 @@ EVAL_SCHEMA: dict[str, Any] = {
                     "items": {
                         "anyOf": [
                             {"$ref": "#/$defs/nonEmptyString"},
-                            {"$ref": "#/$defs/assertionObject"},
+                            {"$ref": "#/$defs/skillAssertionObject"},
                         ]
                     },
                     "minItems": 1,
                 },
             },
         },
-        "assertionObject": {
+        "runnerTest": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["id", "prompt", "assertions"],
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmptyString"},
+                "prompt": {"$ref": "#/$defs/nonEmptyString"},
+                "assertions": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {"$ref": "#/$defs/nonEmptyString"},
+                            {"$ref": "#/$defs/runnerAssertionObject"},
+                        ]
+                    },
+                    "minItems": 1,
+                },
+                "baseline_assertions": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {"$ref": "#/$defs/nonEmptyString"},
+                            {"$ref": "#/$defs/runnerAssertionObject"},
+                        ]
+                    },
+                },
+                "require_improvement": {
+                    "type": "boolean",
+                    "default": True,
+                },
+                "min_score_delta": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+            },
+        },
+        "skillAssertionObject": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
@@ -77,6 +119,27 @@ EVAL_SCHEMA: dict[str, Any] = {
                     "type": "string",
                     "enum": ["text", "description", "body"],
                     "default": "text",
+                },
+                "contains": {"$ref": "#/$defs/nonEmptyString"},
+                "not_contains": {"$ref": "#/$defs/nonEmptyString"},
+                "any_contains": {"$ref": "#/$defs/nonEmptyStringArray"},
+                "all_contains": {"$ref": "#/$defs/nonEmptyStringArray"},
+            },
+            "oneOf": [
+                {"required": ["contains"]},
+                {"required": ["not_contains"]},
+                {"required": ["any_contains"]},
+                {"required": ["all_contains"]},
+            ],
+        },
+        "runnerAssertionObject": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "enum": ["output", "text"],
+                    "default": "output",
                 },
                 "contains": {"$ref": "#/$defs/nonEmptyString"},
                 "not_contains": {"$ref": "#/$defs/nonEmptyString"},
