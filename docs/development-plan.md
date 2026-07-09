@@ -82,7 +82,7 @@ Exit criteria:
 
 - A Skill can prove improvement over a baseline on at least one small eval set.
 
-Status: local eval implementation is complete for trigger cases, task assertions, strict configuration validation, JSON reports, and published JSON Schema. Baseline Agent-backed evals remain planned.
+Status: local eval implementation is complete for trigger cases, task assertions, runner-backed evals, strict configuration validation, JSON and Markdown reports, published JSON Schema, and baseline Skill comparison. Real Agent runtime adapters remain planned.
 
 ## Milestone 4: Repair Loop
 
@@ -134,6 +134,7 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 | LLM planning | Ollama and OpenAI-compatible structured `SkillPlan` generation | 100% |
 | Skill generation | Standard folder output with optional resources | 80% |
 | Static linting | Core checks implemented | 70% |
-| Evaluation | Local trigger evals, task assertions, config validation, JSON Schema, JSON reports, fixture tests | 60% |
+| Evaluation | Local trigger evals, task assertions, runner tests, config validation, JSON Schema, JSON/Markdown reports, fixture tests | 75% |
+| Runner layer | Dry-run runner and optional LLM runner | 100% |
 | Repair loop | Design documented | 0% |
 | Registry/export | Local registry, source hashes, risk/eval metadata, export and install commands | 100% |
