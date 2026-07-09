@@ -8,6 +8,11 @@ The project follows a simple pre-release changelog until versioned releases begi
 
 ### Added
 
+- `v0.5.0` bounded repair loop.
+- `skill-factory repair plan` for reviewable repair plans.
+- `skill-factory repair apply` for safe deterministic edits with lint/eval reruns.
+- Automatic repairs for weak descriptions, missing resources, oversized bodies, and missing positive eval assertions.
+- Rollback on lint/eval regression and manual review blocks for security findings.
 - `v0.4.0` runner-backed eval lifecycle.
 - `runner_tests` eval file section for with-skill vs without-skill comparisons.
 - Deterministic dry-run eval runner for network-free CI.
