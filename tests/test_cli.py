@@ -150,6 +150,27 @@ class CliTests(unittest.TestCase):
             self.assertEqual(install_rc, 0)
             self.assertTrue((installed / "release-note-builder" / "SKILL.md").exists())
 
+    def test_repair_plan_and_apply_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = Path(tmp) / "repair-skill"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: repair-skill\ndescription: \n---\n\n# Repair\n\nCreate release notes.\n",
+                encoding="utf-8",
+            )
+
+            plan_rc, plan_output = self.run_cli_capture(["repair", "plan", str(skill_dir), "--json"])
+            apply_rc = self.run_cli(["repair", "apply", str(skill_dir)])
+
+            plan = json.loads(plan_output)
+            self.assertEqual(plan_rc, 0)
+            self.assertEqual(plan["actions"][0]["kind"], "set_description")
+            self.assertEqual(apply_rc, 0)
+            self.assertIn(
+                "Use this skill when",
+                (skill_dir / "SKILL.md").read_text(encoding="utf-8"),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
