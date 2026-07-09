@@ -7,13 +7,23 @@ from typing import Any
 
 from .frontmatter import parse_frontmatter
 from .linter import lint_skill
+from .runner import DryRunRunner, EvalRunner, SkillContext
 
 DEFAULT_EVAL_PATH = Path("evals") / "evals.json"
 TRIGGER_CASE_KEYS = {"id", "query", "should_trigger", "keywords", "negative_keywords"}
 TASK_CASE_KEYS = {"id", "prompt", "assertions"}
+RUNNER_CASE_KEYS = {
+    "id",
+    "prompt",
+    "assertions",
+    "baseline_assertions",
+    "require_improvement",
+    "min_score_delta",
+}
 ASSERTION_KEYS = {"target", "contains", "not_contains", "any_contains", "all_contains"}
 ASSERTION_OPERATORS = {"contains", "not_contains", "any_contains", "all_contains"}
 ASSERTION_TARGETS = {"text", "description", "body"}
+RUNNER_ASSERTION_TARGETS = {"output", "text"}
 
 
 @dataclass(frozen=True)
@@ -22,6 +32,7 @@ class EvalCaseResult:
     type: str
     passed: bool
     message: str
+    details: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -69,11 +80,38 @@ class EvalReport:
         }
 
 
+@dataclass(frozen=True)
+class EvalComparisonReport:
+    candidate: EvalReport
+    baseline: EvalReport
+
+    @property
+    def score_delta(self) -> int:
+        return self.candidate.passed_count - self.baseline.passed_count
+
+    @property
+    def passed(self) -> bool:
+        return self.candidate.passed and self.score_delta >= 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "passed": self.passed,
+            "score_delta": self.score_delta,
+            "candidate": self.candidate.to_dict(),
+            "baseline": self.baseline.to_dict(),
+        }
+
+
 class EvalError(RuntimeError):
     """Raised when eval configuration cannot be loaded or interpreted."""
 
 
-def evaluate_skill(skill_path: Path, eval_path: Path | None = None, include_lint: bool = True) -> EvalReport:
+def evaluate_skill(
+    skill_path: Path,
+    eval_path: Path | None = None,
+    include_lint: bool = True,
+    runner: EvalRunner | None = None,
+) -> EvalReport:
     skill_dir = skill_path.resolve()
     if skill_dir.is_file() and skill_dir.name == "SKILL.md":
         skill_dir = skill_dir.parent
@@ -84,6 +122,7 @@ def evaluate_skill(skill_path: Path, eval_path: Path | None = None, include_lint
     payload = _load_eval_payload(selected_eval_path)
     skill_text = _read_skill_text(skill_dir)
     skill_snapshot = _skill_snapshot(skill_dir, skill_text)
+    selected_runner = runner or DryRunRunner()
 
     report = EvalReport(skill_path=skill_dir, eval_path=selected_eval_path)
     if include_lint:
@@ -96,6 +135,8 @@ def evaluate_skill(skill_path: Path, eval_path: Path | None = None, include_lint
         report.results.append(_evaluate_trigger_case(case, skill_snapshot))
     for case in payload.get("task_tests", []):
         report.results.append(_evaluate_task_case(case, skill_snapshot))
+    for case in payload.get("runner_tests", []):
+        report.results.append(_evaluate_runner_case(case, skill_snapshot, selected_runner))
 
     return report
 
@@ -122,6 +163,73 @@ def eval_report_to_json(report: EvalReport) -> str:
     return json.dumps(report.to_dict(), indent=2, sort_keys=True)
 
 
+def format_eval_report_markdown(report: EvalReport) -> str:
+    status = "PASS" if report.passed else "FAIL"
+    lines = [
+        f"# Skill Eval Report: {status}",
+        "",
+        f"- Skill: `{report.skill_path}`",
+        f"- Eval file: `{report.eval_path}`",
+        f"- Cases: {report.passed_count}/{report.total_count} passed",
+        (
+            "- Lint: "
+            f"{'passed' if report.lint_passed else 'failed'} "
+            f"({report.lint_error_count} errors, {report.lint_warning_count} warnings)"
+        ),
+        "",
+        "| Status | Type | ID | Message |",
+        "|---|---|---|---|",
+    ]
+    for result in report.results:
+        marker = "PASS" if result.passed else "FAIL"
+        lines.append(f"| {marker} | {result.type} | `{result.id}` | {_escape_table(result.message)} |")
+    return "\n".join(lines) + "\n"
+
+
+def compare_eval_reports(candidate: EvalReport, baseline: EvalReport) -> EvalComparisonReport:
+    return EvalComparisonReport(candidate=candidate, baseline=baseline)
+
+
+def eval_comparison_to_json(report: EvalComparisonReport) -> str:
+    return json.dumps(report.to_dict(), indent=2, sort_keys=True)
+
+
+def format_eval_comparison(report: EvalComparisonReport) -> str:
+    status = "PASS" if report.passed else "FAIL"
+    return "\n".join(
+        [
+            f"{status} eval comparison",
+            f"Candidate: {report.candidate.skill_path}",
+            f"Baseline: {report.baseline.skill_path}",
+            f"Candidate cases: {report.candidate.passed_count}/{report.candidate.total_count} passed",
+            f"Baseline cases: {report.baseline.passed_count}/{report.baseline.total_count} passed",
+            f"Score delta: {report.score_delta}",
+        ]
+    )
+
+
+def format_eval_comparison_markdown(report: EvalComparisonReport) -> str:
+    status = "PASS" if report.passed else "FAIL"
+    lines = [
+        f"# Skill Eval Comparison: {status}",
+        "",
+        f"- Candidate: `{report.candidate.skill_path}`",
+        f"- Baseline: `{report.baseline.skill_path}`",
+        f"- Candidate cases: {report.candidate.passed_count}/{report.candidate.total_count} passed",
+        f"- Baseline cases: {report.baseline.passed_count}/{report.baseline.total_count} passed",
+        f"- Score delta: {report.score_delta}",
+        "",
+        "## Candidate",
+        "",
+        format_eval_report_markdown(report.candidate).strip(),
+        "",
+        "## Baseline",
+        "",
+        format_eval_report_markdown(report.baseline).strip(),
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _load_eval_payload(eval_path: Path) -> dict[str, Any]:
     if not eval_path.exists():
         raise EvalError(f"Eval file does not exist: {eval_path}")
@@ -136,23 +244,28 @@ def _load_eval_payload(eval_path: Path) -> dict[str, Any]:
 
 
 def _validate_eval_payload(payload: dict[str, Any]) -> None:
-    unknown_keys = set(payload) - {"trigger_tests", "task_tests"}
+    unknown_keys = set(payload) - {"trigger_tests", "task_tests", "runner_tests"}
     if unknown_keys:
         raise EvalError(f"Unknown eval top-level keys: {', '.join(sorted(unknown_keys))}.")
 
     trigger_tests = payload.get("trigger_tests", [])
     task_tests = payload.get("task_tests", [])
+    runner_tests = payload.get("runner_tests", [])
     if not isinstance(trigger_tests, list):
         raise EvalError("trigger_tests must be an array when present.")
     if not isinstance(task_tests, list):
         raise EvalError("task_tests must be an array when present.")
-    if not trigger_tests and not task_tests:
-        raise EvalError("Eval file must include at least one trigger_tests or task_tests case.")
+    if not isinstance(runner_tests, list):
+        raise EvalError("runner_tests must be an array when present.")
+    if not trigger_tests and not task_tests and not runner_tests:
+        raise EvalError("Eval file must include at least one trigger_tests, task_tests, or runner_tests case.")
 
     for index, case in enumerate(trigger_tests):
         _validate_trigger_case(case, index)
     for index, case in enumerate(task_tests):
         _validate_task_case(case, index)
+    for index, case in enumerate(runner_tests):
+        _validate_runner_case(case, index)
 
 
 def _validate_trigger_case(case: Any, index: int) -> None:
@@ -180,10 +293,43 @@ def _validate_task_case(case: Any, index: int) -> None:
     if not isinstance(assertions, list) or not assertions:
         raise EvalError(f"{prefix}.assertions must be a non-empty array.")
     for assertion_index, assertion in enumerate(assertions):
-        _validate_assertion(assertion, f"{prefix}.assertions[{assertion_index}]")
+        _validate_assertion(assertion, f"{prefix}.assertions[{assertion_index}]", ASSERTION_TARGETS)
 
 
-def _validate_assertion(assertion: Any, prefix: str) -> None:
+def _validate_runner_case(case: Any, index: int) -> None:
+    prefix = f"runner_tests[{index}]"
+    if not isinstance(case, dict):
+        raise EvalError(f"{prefix} must be an object.")
+    _reject_unknown_case_keys(prefix, case, RUNNER_CASE_KEYS)
+    _require_string(case, "id", prefix)
+    _require_string(case, "prompt", prefix)
+    assertions = case.get("assertions")
+    if not isinstance(assertions, list) or not assertions:
+        raise EvalError(f"{prefix}.assertions must be a non-empty array.")
+    for assertion_index, assertion in enumerate(assertions):
+        _validate_assertion(
+            assertion,
+            f"{prefix}.assertions[{assertion_index}]",
+            RUNNER_ASSERTION_TARGETS,
+        )
+    baseline_assertions = case.get("baseline_assertions", [])
+    if not isinstance(baseline_assertions, list):
+        raise EvalError(f"{prefix}.baseline_assertions must be an array when present.")
+    for assertion_index, assertion in enumerate(baseline_assertions):
+        _validate_assertion(
+            assertion,
+            f"{prefix}.baseline_assertions[{assertion_index}]",
+            RUNNER_ASSERTION_TARGETS,
+        )
+    if "require_improvement" in case and not isinstance(case["require_improvement"], bool):
+        raise EvalError(f"{prefix}.require_improvement must be a boolean when present.")
+    if "min_score_delta" in case:
+        value = case["min_score_delta"]
+        if not isinstance(value, int) or value < 0:
+            raise EvalError(f"{prefix}.min_score_delta must be a non-negative integer when present.")
+
+
+def _validate_assertion(assertion: Any, prefix: str, allowed_targets: set[str]) -> None:
     if isinstance(assertion, str):
         if not assertion.strip():
             raise EvalError(f"{prefix} must not be an empty string.")
@@ -192,8 +338,8 @@ def _validate_assertion(assertion: Any, prefix: str) -> None:
         raise EvalError(f"{prefix} must be a string or object.")
     _reject_unknown_case_keys(prefix, assertion, ASSERTION_KEYS)
     target = assertion.get("target", "text")
-    if not isinstance(target, str) or target not in ASSERTION_TARGETS:
-        raise EvalError(f"{prefix}.target must be one of: {', '.join(sorted(ASSERTION_TARGETS))}.")
+    if not isinstance(target, str) or target not in allowed_targets:
+        raise EvalError(f"{prefix}.target must be one of: {', '.join(sorted(allowed_targets))}.")
     operators = set(assertion) & ASSERTION_OPERATORS
     if len(operators) != 1:
         raise EvalError(f"{prefix} must include exactly one assertion operator.")
@@ -289,6 +435,63 @@ def _evaluate_task_case(case: Any, skill: dict[str, str]) -> EvalCaseResult:
     return EvalCaseResult(case_id, "task", True, f"{len(assertions)} assertions passed")
 
 
+def _evaluate_runner_case(case: Any, skill: dict[str, str], runner: EvalRunner) -> EvalCaseResult:
+    case_id = _case_id(case)
+    prompt = _string(case.get("prompt"))
+    assertions = case.get("assertions", [])
+    baseline_assertions = case.get("baseline_assertions", [])
+    require_improvement = case.get("require_improvement", True)
+    min_score_delta = case.get("min_score_delta")
+    if min_score_delta is None:
+        min_score_delta = 1 if require_improvement else 0
+
+    context = _runner_context(skill)
+    baseline_result = runner.run(prompt, context, use_skill=False)
+    skill_result = runner.run(prompt, context, use_skill=True)
+
+    baseline_score, baseline_total = _score_runner_assertions(assertions, baseline_result.output)
+    skill_score, skill_total = _score_runner_assertions(assertions, skill_result.output)
+    baseline_gate_score, baseline_gate_total = _score_runner_assertions(
+        baseline_assertions,
+        baseline_result.output,
+    )
+    score_delta = skill_score - baseline_score
+    skill_assertions_passed = skill_score == skill_total
+    baseline_gate_passed = baseline_gate_score == baseline_gate_total
+    improvement_passed = (not require_improvement) or score_delta >= int(min_score_delta)
+    passed = skill_assertions_passed and baseline_gate_passed and improvement_passed
+
+    message = (
+        f"runner={runner.name}, skill_score={skill_score}/{skill_total}, "
+        f"baseline_score={baseline_score}/{baseline_total}, delta={score_delta}"
+    )
+    if baseline_gate_total:
+        message += f", baseline_assertions={baseline_gate_score}/{baseline_gate_total}"
+    if require_improvement:
+        message += f", required_delta>={min_score_delta}"
+
+    return EvalCaseResult(
+        case_id,
+        "runner",
+        passed,
+        message,
+        {
+            "runner": runner.name,
+            "skill_score": skill_score,
+            "skill_total": skill_total,
+            "baseline_score": baseline_score,
+            "baseline_total": baseline_total,
+            "score_delta": score_delta,
+            "baseline_assertion_score": baseline_gate_score,
+            "baseline_assertion_total": baseline_gate_total,
+            "require_improvement": bool(require_improvement),
+            "min_score_delta": int(min_score_delta),
+            "baseline_metadata": baseline_result.metadata,
+            "skill_metadata": skill_result.metadata,
+        },
+    )
+
+
 def _evaluate_assertion(assertion: Any, skill: dict[str, str]) -> bool:
     if isinstance(assertion, str):
         return assertion.lower() in skill["text"]
@@ -306,6 +509,44 @@ def _evaluate_assertion(assertion: Any, skill: dict[str, str]) -> bool:
     if "all_contains" in assertion:
         return all(item.lower() in text for item in _strings(assertion.get("all_contains")))
     return False
+
+
+def _score_runner_assertions(assertions: list[Any], output: str) -> tuple[int, int]:
+    if not assertions:
+        return 0, 0
+    passed = sum(1 for assertion in assertions if _evaluate_runner_assertion(assertion, output))
+    return passed, len(assertions)
+
+
+def _evaluate_runner_assertion(assertion: Any, output: str) -> bool:
+    if isinstance(assertion, str):
+        return assertion.lower() in output.lower()
+    if not isinstance(assertion, dict):
+        return False
+
+    target = _string(assertion.get("target")) or "output"
+    if target not in RUNNER_ASSERTION_TARGETS:
+        return False
+    text = output.lower()
+    if "contains" in assertion:
+        return _string(assertion.get("contains")).lower() in text
+    if "not_contains" in assertion:
+        return _string(assertion.get("not_contains")).lower() not in text
+    if "any_contains" in assertion:
+        return _contains_any(text, _strings(assertion.get("any_contains")))
+    if "all_contains" in assertion:
+        return all(item.lower() in text for item in _strings(assertion.get("all_contains")))
+    return False
+
+
+def _runner_context(skill: dict[str, str]) -> SkillContext:
+    return SkillContext(
+        name=skill["name"],
+        description=skill["description"],
+        body=skill["body"],
+        text=skill["text"],
+        path=Path(skill["path"]),
+    )
 
 
 def _case_id(case: dict[str, Any]) -> str:
@@ -338,3 +579,7 @@ def _word_overlap_score(query: str, text: str) -> float:
 def _words(value: str) -> set[str]:
     normalized = "".join(character.lower() if character.isalnum() else " " for character in value)
     return {word for word in normalized.split() if len(word) >= 3}
+
+
+def _escape_table(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
