@@ -3,7 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from skill_factory.evaluator import EvalError, evaluate_skill, format_eval_report
+from skill_factory.evaluator import (
+    EvalError,
+    compare_eval_reports,
+    evaluate_skill,
+    format_eval_report,
+    format_eval_report_markdown,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures" / "skills"
 
@@ -13,8 +19,9 @@ class EvaluatorTests(unittest.TestCase):
         report = evaluate_skill(FIXTURES / "release-note-builder")
 
         self.assertTrue(report.passed, report.to_dict())
-        self.assertEqual(report.total_count, 3)
+        self.assertEqual(report.total_count, 4)
         self.assertEqual(report.failed_count, 0)
+        self.assertIn("runner", {result.type for result in report.results})
 
     def test_failing_fixture_reports_failed_assertion(self) -> None:
         report = evaluate_skill(FIXTURES / "failing-skill", include_lint=False)
@@ -81,15 +88,70 @@ class EvaluatorTests(unittest.TestCase):
         text = format_eval_report(report)
 
         self.assertIn("PASS", text)
-        self.assertIn("Cases: 3/3 passed", text)
+        self.assertIn("Cases: 4/4 passed", text)
+
+    def test_markdown_report_includes_result_table(self) -> None:
+        report = evaluate_skill(FIXTURES / "release-note-builder")
+        text = format_eval_report_markdown(report)
+
+        self.assertIn("# Skill Eval Report: PASS", text)
+        self.assertIn("| Status | Type | ID | Message |", text)
 
     def test_json_shape_is_stable(self) -> None:
         report = evaluate_skill(FIXTURES / "release-note-builder")
         payload = report.to_dict()
 
-        self.assertEqual(payload["passed_count"], 3)
-        self.assertEqual(len(payload["results"]), 3)
+        self.assertEqual(payload["passed_count"], 4)
+        self.assertEqual(len(payload["results"]), 4)
         json.dumps(payload)
+
+    def test_runner_eval_requires_improvement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self.write_skill_with_eval(
+                Path(tmp),
+                {
+                    "runner_tests": [
+                        {
+                            "id": "needs-improvement",
+                            "prompt": "Create release notes.",
+                            "assertions": [{"target": "output", "contains": "features"}],
+                            "min_score_delta": 1,
+                        }
+                    ]
+                },
+            )
+
+            report = evaluate_skill(skill_dir, include_lint=False)
+
+            self.assertTrue(report.passed, report.to_dict())
+            self.assertEqual(report.results[0].details["score_delta"], 1)
+
+    def test_runner_schema_rejects_invalid_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self.write_skill_with_eval(
+                Path(tmp),
+                {
+                    "runner_tests": [
+                        {
+                            "id": "bad-target",
+                            "prompt": "Create release notes.",
+                            "assertions": [{"target": "body", "contains": "features"}],
+                        }
+                    ]
+                },
+            )
+
+            with self.assertRaisesRegex(EvalError, "target"):
+                evaluate_skill(skill_dir, include_lint=False)
+
+    def test_compare_eval_reports_passes_when_candidate_does_not_regress(self) -> None:
+        candidate = evaluate_skill(FIXTURES / "release-note-builder")
+        baseline = evaluate_skill(FIXTURES / "release-note-builder", include_lint=False)
+
+        comparison = compare_eval_reports(candidate, baseline)
+
+        self.assertTrue(comparison.passed)
+        self.assertEqual(comparison.score_delta, 0)
 
     def write_skill_with_eval(self, root: Path, eval_payload: dict) -> Path:
         skill_dir = root / "schema-skill"
