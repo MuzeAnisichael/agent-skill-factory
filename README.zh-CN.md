@@ -16,20 +16,20 @@ Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、
 
 ## 项目状态
 
-当前版本：`0.4.0`
+当前版本：`0.5.0`
 
 项目仍处于 alpha 阶段，但本地生命周期已经可以端到端使用：
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| 本地 CLI | 已完成 | 支持 `init`、`plan`、`generate`、`lint`、`eval`、`registry`、`export`、`install` 和 `eval-schema`。 |
+| 本地 CLI | 已完成 | 支持 `init`、`plan`、`generate`、`lint`、`eval`、`repair`、`registry`、`export`、`install` 和 `eval-schema`。 |
 | Skill 包写入器 | 已完成 | 生成 `SKILL.md`、可选资源目录和 `agents/openai.yaml`。 |
 | LLM 规划 | 已完成 | 支持本地 Ollama 和 OpenAI-compatible API，输出结构化 `SkillPlan`。 |
 | 静态 linter | 进行中 | 覆盖命名、frontmatter、资源缺失、危险指令和 Python 脚本语法。 |
 | Eval runner | 进行中 | 已支持本地触发测试、任务断言、runner-backed eval、Markdown/JSON 报告和回归对比。 |
 | 本地注册表和导出 | 已完成 | 文件型 registry、源码哈希、风险摘要、eval 状态和客户端目录导出。 |
 | Runner 抽象 | 已完成 | 支持确定性的 dry-run runner，以及可选的 Ollama/OpenAI-compatible LLM runner。 |
-| Repair loop | 计划中 | 基于 lint/eval 失败进行受控修复。 |
+| Repair loop | 已完成 | 支持受控修复计划、安全确定性编辑、重跑 lint/eval，并在回归时回滚。 |
 | Agent-backed eval | 计划中 | 后续接入真实 Agent runtime、工具调用和 trace。 |
 
 ## 为什么做这个项目
@@ -96,6 +96,16 @@ skill-factory eval skills/release-note-builder \
   --model llama3.1
 ```
 
+规划并应用受控修复：
+
+```bash
+skill-factory repair plan skills/release-note-builder
+skill-factory repair plan skills/release-note-builder --json
+skill-factory repair apply skills/release-note-builder
+```
+
+Repair 可以修复弱 description、缺失引用资源、过长 `SKILL.md` 正文，以及缺失的正向 eval 断言。安全相关发现会标记为人工审查，不会自动应用。
+
 注册并安装 Skill：
 
 ```bash
@@ -156,8 +166,8 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## 仓库结构
 
 ```text
-src/skill_factory/       核心 CLI、生成器、linter、evaluator、runner、registry、schemas 和 LLM providers
-tests/                   CLI、规划、生成、lint、eval、runner、registry 和 schema 的单元测试
+src/skill_factory/       核心 CLI、生成器、linter、evaluator、repair、runner、registry、schemas 和 LLM providers
+tests/                   CLI、规划、生成、lint、eval、repair、runner、registry 和 schema 的单元测试
 docs/                    架构、LLM provider、评测、注册表、安全和格式文档
 .github/                 CI、issue 模板和 PR 模板
 ROADMAP.md               开发计划和完成表
@@ -171,6 +181,7 @@ ROADMAP.md               开发计划和完成表
 - [Skill 输出格式](docs/skill-output-format.md)
 - [LLM Providers](docs/llm-providers.md)
 - [评测策略](docs/evaluation.md)
+- [Repair Loop](docs/repair.md)
 - [Eval JSON Schema](docs/eval-schema.json)
 - [注册表和导出](docs/registry.md)
 - [安全模型](docs/security-model.md)
