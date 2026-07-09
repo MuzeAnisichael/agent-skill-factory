@@ -1,14 +1,19 @@
 # Evaluation Strategy
 
-A Skill is useful only if it improves Agent behavior. The project now includes an initial local eval runner. It is intentionally lightweight: it validates trigger behavior and task assertions against the Skill package before future Agent-backed evals are added.
+A Skill is useful only if it improves Agent behavior. The project now includes local package evals plus runner-backed evals. The default runner is deterministic and network-free, while an optional LLM runner can call Ollama or an OpenAI-compatible API when explicitly requested.
 
 ## Current Command
 
 ```bash
 skill-factory eval path/to/skill
 skill-factory eval path/to/skill --json
+skill-factory eval path/to/skill --markdown
+skill-factory eval path/to/skill --markdown-output eval-report.md
 skill-factory eval path/to/skill --eval-file path/to/evals.json
 skill-factory eval path/to/skill --no-lint
+skill-factory eval path/to/skill --runner dry-run
+skill-factory eval path/to/skill --runner llm --provider ollama --model llama3.1
+skill-factory eval path/to/skill --baseline-skill old/path/to/skill
 skill-factory eval-schema
 skill-factory eval-schema --output docs/eval-schema.json
 ```
@@ -47,6 +52,21 @@ Default eval path:
         {"target": "body", "not_contains": "rm -rf"}
       ]
     }
+  ],
+  "runner_tests": [
+    {
+      "id": "skill-context-improves-release-note-output",
+      "prompt": "Create release notes for the current branch.",
+      "assertions": [
+        {"target": "output", "contains": "features section"},
+        {"target": "output", "contains": "fixes section"}
+      ],
+      "baseline_assertions": [
+        {"target": "output", "contains": "No Skill context was loaded"}
+      ],
+      "require_improvement": true,
+      "min_score_delta": 2
+    }
   ]
 }
 ```
@@ -61,8 +81,9 @@ Top-level keys:
 
 - `trigger_tests`
 - `task_tests`
+- `runner_tests`
 
-Unknown top-level keys are rejected. At least one trigger or task case is required.
+Unknown top-level keys are rejected. At least one trigger, task, or runner case is required.
 
 Trigger case fields:
 
@@ -88,6 +109,22 @@ Assertion object fields:
 - Exactly one operator is required: `contains`, `not_contains`, `any_contains`, or `all_contains`.
 - `contains` and `not_contains` use a non-empty string.
 - `any_contains` and `all_contains` use a non-empty string array.
+
+Runner case fields:
+
+| Field | Required | Type |
+|---|---:|---|
+| `id` | yes | non-empty string |
+| `prompt` | yes | non-empty string |
+| `assertions` | yes | non-empty array |
+| `baseline_assertions` | no | array |
+| `require_improvement` | no | boolean, default `true` |
+| `min_score_delta` | no | non-negative integer |
+
+Runner assertion targets:
+
+- `output`: runner output. This is the default.
+- `text`: alias for runner output.
 
 ## Current Eval Types
 
@@ -124,6 +161,52 @@ Targets:
 - `description`: frontmatter description.
 - `body`: `SKILL.md` body.
 
+### Runner Eval
+
+Runs the same prompt twice:
+
+1. without Skill context
+2. with Skill context
+
+The default `dry-run` runner is deterministic. It emits a baseline output with no Skill context and a with-Skill output containing the Skill name, description, and body. This makes CI stable while still proving that the Skill carries useful task context.
+
+The optional `llm` runner calls a configured LLM provider:
+
+```bash
+skill-factory eval skills/release-note-builder \
+  --runner llm \
+  --provider ollama \
+  --model llama3.1
+```
+
+Use the LLM runner only when model access is available. CI should continue to use `dry-run`.
+
+Runner scoring:
+
+- `assertions` are scored against both baseline output and with-Skill output.
+- The with-Skill output must pass all `assertions`.
+- When `require_improvement` is true, the with-Skill score must improve over the baseline score by at least `min_score_delta`.
+- `baseline_assertions`, when present, must pass against the baseline output.
+
+### Regression Comparison
+
+Use `--baseline-skill` to compare a candidate Skill against an older Skill with the same eval file:
+
+```bash
+skill-factory eval skills/release-note-builder --baseline-skill old-skills/release-note-builder
+```
+
+The comparison passes when the candidate eval passes and the candidate does not score lower than the baseline.
+
+### Markdown Reports
+
+Markdown reports are useful for issue comments, pull requests, and manual review:
+
+```bash
+skill-factory eval skills/release-note-builder --markdown
+skill-factory eval skills/release-note-builder --markdown-output eval-report.md
+```
+
 ### Lint Aggregation
 
 By default, `skill-factory eval` also runs static lint and fails the report if lint has errors. Use `--no-lint` for isolated eval debugging.
@@ -132,20 +215,18 @@ By default, `skill-factory eval` also runs static lint and fails the report if l
 
 ### Baseline Eval
 
-Future runner behavior:
+Current runner behavior:
 
-- Run each task without the Skill.
+- Run each runner task without the Skill.
 - Run the same task with the Skill.
-- Compare quality, latency, tool calls, and safety.
+- Compare assertion pass counts.
+- Compare a candidate Skill against a baseline Skill.
 
-For revisions:
-
-- Compare old Skill vs new Skill.
-- Block regressions on held-out evals.
+Future work should add model-graded quality, latency, tool-call, and safety metrics.
 
 ### Agent-Backed Eval
 
-Future support should integrate with actual Agent runtimes so the runner can evaluate behavior instead of only package text.
+Future support should integrate with actual Agent runtimes so the runner can evaluate tool use, trace quality, and task outcomes beyond text assertions.
 
 ### Safety Eval
 
@@ -163,15 +244,17 @@ Current:
 
 - Trigger pass/fail.
 - Task assertion pass/fail.
+- Runner assertion score delta.
+- Regression score delta.
 - Lint pass/fail.
 - Total passed and failed cases.
 - Eval configuration validation.
+- Markdown reports.
 
 Planned:
 
 - Trigger precision and recall.
 - Task pass rate.
-- Regression count.
 - Token cost.
 - Runtime.
 - Tool-call count.
