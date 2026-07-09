@@ -16,20 +16,20 @@ It turns real task briefs, documentation, codebase conventions, tool description
 
 ## Project Status
 
-Current version: `0.4.0`
+Current version: `0.5.0`
 
 The project is still alpha, but the local lifecycle is now usable end to end:
 
 | Area | Status | Notes |
 |---|---|---|
-| Local CLI | Done | `init`, `plan`, `generate`, `lint`, `eval`, `registry`, `export`, `install`, and `eval-schema`. |
+| Local CLI | Done | `init`, `plan`, `generate`, `lint`, `eval`, `repair`, `registry`, `export`, `install`, and `eval-schema`. |
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
 | LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured `SkillPlan` generation. |
 | Static linter | In progress | Covers naming, frontmatter, missing resources, risky instructions, and Python syntax. |
 | Eval runner | In progress | Local trigger evals, task assertions, runner-backed evals, Markdown/JSON reports, and regression comparison. |
 | Local registry/export | Done | File-based registry, source hashes, risk summary, eval status, and client directory export. |
 | Runner abstraction | Done | Deterministic dry-run runner plus optional LLM runner for Ollama or OpenAI-compatible APIs. |
-| Repair loop | Planned | Bounded fixes based on lint and eval failures. |
+| Repair loop | Done | Bounded repair plans, safe deterministic edits, lint/eval reruns, and rollback on regression. |
 | Agent-backed evals | Planned | Deeper integration with real Agent runtimes and tool traces. |
 
 ## Why
@@ -96,6 +96,16 @@ skill-factory eval skills/release-note-builder \
   --model llama3.1
 ```
 
+Plan and apply bounded repairs:
+
+```bash
+skill-factory repair plan skills/release-note-builder
+skill-factory repair plan skills/release-note-builder --json
+skill-factory repair apply skills/release-note-builder
+```
+
+Repair can fix weak descriptions, missing referenced resources, oversized `SKILL.md` bodies, and missing positive eval assertions. Security-related findings are marked for manual review and are not auto-applied.
+
 Register and install a Skill locally:
 
 ```bash
@@ -156,8 +166,8 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## Repository Layout
 
 ```text
-src/skill_factory/       Core CLI, generator, linter, evaluator, runner, registry, schemas, and LLM providers
-tests/                   Unit tests for CLI, planning, generation, linting, evals, runner, registry, and schemas
+src/skill_factory/       Core CLI, generator, linter, evaluator, repair, runner, registry, schemas, and LLM providers
+tests/                   Unit tests for CLI, planning, generation, linting, evals, repair, runner, registry, and schemas
 docs/                    Architecture, LLM providers, evaluation, registry, security, and format docs
 .github/                 CI, issue templates, and PR template
 ROADMAP.md               Development plan and completion table
@@ -171,6 +181,7 @@ ROADMAP.md               Development plan and completion table
 - [Skill Output Format](docs/skill-output-format.md)
 - [LLM Providers](docs/llm-providers.md)
 - [Evaluation Strategy](docs/evaluation.md)
+- [Repair Loop](docs/repair.md)
 - [Eval JSON Schema](docs/eval-schema.json)
 - [Registry and Export](docs/registry.md)
 - [Security Model](docs/security-model.md)
