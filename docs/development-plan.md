@@ -97,6 +97,8 @@ Exit criteria:
 
 - The system can improve a weak Skill description or split an oversized Skill into references without manual rewrite.
 
+Status: initial implementation complete in `v0.5.0` with `repair plan`, `repair apply`, deterministic edits, lint/eval reruns, rollback on regression, and manual security blocks.
+
 ## Milestone 5: Registry and Export
 
 Deliverables:
@@ -136,5 +138,5 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 | Static linting | Core checks implemented | 70% |
 | Evaluation | Local trigger evals, task assertions, runner tests, config validation, JSON Schema, JSON/Markdown reports, fixture tests | 75% |
 | Runner layer | Dry-run runner and optional LLM runner | 100% |
-| Repair loop | Design documented | 0% |
+| Repair loop | Bounded plan/apply flow, deterministic edits, rollback on regression, manual security blocks | 100% |
 | Registry/export | Local registry, source hashes, risk/eval metadata, export and install commands | 100% |
