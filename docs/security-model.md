@@ -41,6 +41,8 @@ Require human approval for Skills that:
 - Access secrets.
 - Modify production systems.
 
+Repair plans also require manual review for security-related lint findings. The default repair loop does not auto-apply destructive, exfiltration, or approval-bypass changes.
+
 ### Traceability
 
 Store:
