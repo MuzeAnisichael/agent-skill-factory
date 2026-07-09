@@ -62,6 +62,35 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(rc, 1)
 
+    def test_eval_markdown_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = Path(tmp) / "eval-report.md"
+
+            rc = self.run_cli(
+                [
+                    "eval",
+                    str(FIXTURES / "release-note-builder"),
+                    "--markdown-output",
+                    str(report_path),
+                ]
+            )
+
+            self.assertEqual(rc, 0)
+            self.assertIn("# Skill Eval Report: PASS", report_path.read_text(encoding="utf-8"))
+
+    def test_eval_with_baseline_skill(self) -> None:
+        rc, output = self.run_cli_capture(
+            [
+                "eval",
+                str(FIXTURES / "release-note-builder"),
+                "--baseline-skill",
+                str(FIXTURES / "release-note-builder"),
+            ]
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertIn("PASS eval comparison", output)
+
     def test_eval_schema_outputs_json_schema(self) -> None:
         rc, output = self.run_cli_capture(["eval-schema"])
 
