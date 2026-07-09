@@ -1,6 +1,118 @@
 {
   "$defs": {
-    "assertionObject": {
+    "nonEmptyString": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "type": "string"
+    },
+    "nonEmptyStringArray": {
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "runnerAssertionObject": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "contains"
+          ]
+        },
+        {
+          "required": [
+            "not_contains"
+          ]
+        },
+        {
+          "required": [
+            "any_contains"
+          ]
+        },
+        {
+          "required": [
+            "all_contains"
+          ]
+        }
+      ],
+      "properties": {
+        "all_contains": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "any_contains": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "contains": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "not_contains": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target": {
+          "default": "output",
+          "enum": [
+            "output",
+            "text"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "runnerTest": {
+      "additionalProperties": false,
+      "properties": {
+        "assertions": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              {
+                "$ref": "#/$defs/runnerAssertionObject"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "baseline_assertions": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              {
+                "$ref": "#/$defs/runnerAssertionObject"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "min_score_delta": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prompt": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "require_improvement": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "prompt",
+        "assertions"
+      ],
+      "type": "object"
+    },
+    "skillAssertionObject": {
       "additionalProperties": false,
       "oneOf": [
         {
@@ -49,18 +161,6 @@
       },
       "type": "object"
     },
-    "nonEmptyString": {
-      "minLength": 1,
-      "pattern": "\\S",
-      "type": "string"
-    },
-    "nonEmptyStringArray": {
-      "items": {
-        "$ref": "#/$defs/nonEmptyString"
-      },
-      "minItems": 1,
-      "type": "array"
-    },
     "taskTest": {
       "additionalProperties": false,
       "properties": {
@@ -71,7 +171,7 @@
                 "$ref": "#/$defs/nonEmptyString"
               },
               {
-                "$ref": "#/$defs/assertionObject"
+                "$ref": "#/$defs/skillAssertionObject"
               }
             ]
           },
@@ -131,10 +231,22 @@
       "required": [
         "task_tests"
       ]
+    },
+    {
+      "required": [
+        "runner_tests"
+      ]
     }
   ],
   "description": "Schema for <skill>/evals/evals.json files used by skill-factory eval.",
   "properties": {
+    "runner_tests": {
+      "items": {
+        "$ref": "#/$defs/runnerTest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
     "task_tests": {
       "items": {
         "$ref": "#/$defs/taskTest"
