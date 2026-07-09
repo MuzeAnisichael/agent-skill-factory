@@ -16,7 +16,7 @@ It turns real task briefs, documentation, codebase conventions, tool description
 
 ## Project Status
 
-Current version: `0.3.0`
+Current version: `0.4.0`
 
 The project is still alpha, but the local lifecycle is now usable end to end:
 
@@ -26,10 +26,11 @@ The project is still alpha, but the local lifecycle is now usable end to end:
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
 | LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured `SkillPlan` generation. |
 | Static linter | In progress | Covers naming, frontmatter, missing resources, risky instructions, and Python syntax. |
-| Eval runner | In progress | Local trigger evals, task assertions, strict schema validation, and JSON reports. |
+| Eval runner | In progress | Local trigger evals, task assertions, runner-backed evals, Markdown/JSON reports, and regression comparison. |
 | Local registry/export | Done | File-based registry, source hashes, risk summary, eval status, and client directory export. |
+| Runner abstraction | Done | Deterministic dry-run runner plus optional LLM runner for Ollama or OpenAI-compatible APIs. |
 | Repair loop | Planned | Bounded fixes based on lint and eval failures. |
-| Agent-backed evals | Planned | Runtime comparison with and without Skills. |
+| Agent-backed evals | Planned | Deeper integration with real Agent runtimes and tool traces. |
 
 ## Why
 
@@ -80,7 +81,19 @@ Run local evals after adding `evals/evals.json`:
 ```bash
 skill-factory eval skills/release-note-builder
 skill-factory eval skills/release-note-builder --json
+skill-factory eval skills/release-note-builder --markdown-output eval-report.md
+skill-factory eval skills/release-note-builder --baseline-skill old-skills/release-note-builder
 skill-factory eval-schema --output docs/eval-schema.json
+```
+
+Run runner-backed evals with the deterministic dry-run runner, or explicitly use an LLM runner:
+
+```bash
+skill-factory eval skills/release-note-builder --runner dry-run
+skill-factory eval skills/release-note-builder \
+  --runner llm \
+  --provider ollama \
+  --model llama3.1
 ```
 
 Register and install a Skill locally:
@@ -143,8 +156,8 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## Repository Layout
 
 ```text
-src/skill_factory/       Core CLI, generator, linter, evaluator, registry, schemas, and LLM providers
-tests/                   Unit tests for CLI, planning, generation, linting, evals, registry, and schemas
+src/skill_factory/       Core CLI, generator, linter, evaluator, runner, registry, schemas, and LLM providers
+tests/                   Unit tests for CLI, planning, generation, linting, evals, runner, registry, and schemas
 docs/                    Architecture, LLM providers, evaluation, registry, security, and format docs
 .github/                 CI, issue templates, and PR template
 ROADMAP.md               Development plan and completion table
