@@ -6,7 +6,17 @@ from pathlib import Path
 from typing import Sequence
 
 from . import __version__
-from .evaluator import EvalError, eval_report_to_json, evaluate_skill, format_eval_report
+from .evaluator import (
+    EvalError,
+    compare_eval_reports,
+    eval_comparison_to_json,
+    eval_report_to_json,
+    evaluate_skill,
+    format_eval_comparison,
+    format_eval_comparison_markdown,
+    format_eval_report,
+    format_eval_report_markdown,
+)
 from .generator import RESOURCE_DIRS, create_skill
 from .linter import format_report, lint_skill, report_to_json
 from .llm import LLMError, create_llm_client
@@ -24,6 +34,7 @@ from .registry import (
     load_registry,
     register_skill,
 )
+from .runner import DryRunRunner, LLMEvalRunner
 from .schemas import eval_schema_json
 
 
@@ -105,7 +116,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Eval JSON file. Defaults to <skill>/evals/evals.json.",
     )
     eval_parser.add_argument("--json", action="store_true", help="Print a JSON eval report.")
+    eval_parser.add_argument("--markdown", action="store_true", help="Print a Markdown eval report.")
+    eval_parser.add_argument("--markdown-output", type=Path, help="Write a Markdown eval report to a file.")
     eval_parser.add_argument("--no-lint", action="store_true", help="Skip lint aggregation during eval.")
+    eval_parser.add_argument(
+        "--runner",
+        choices=("dry-run", "llm"),
+        default="dry-run",
+        help="Runner for runner_tests. Defaults to deterministic dry-run.",
+    )
+    eval_parser.add_argument(
+        "--baseline-skill",
+        type=Path,
+        help="Evaluate a baseline Skill and fail if the candidate regresses.",
+    )
+    _add_llm_args(eval_parser)
     eval_parser.set_defaults(func=_cmd_eval)
 
     registry_parser = subparsers.add_parser("registry", help="Manage the local Skill registry.")
@@ -258,17 +283,41 @@ def _cmd_lint(args: argparse.Namespace) -> int:
 
 
 def _cmd_eval(args: argparse.Namespace) -> int:
+    runner = _create_eval_runner(args)
     try:
         report = evaluate_skill(
             skill_path=args.skill,
             eval_path=args.eval_file,
             include_lint=not args.no_lint,
+            runner=runner,
         )
+        comparison = None
+        if args.baseline_skill:
+            baseline_report = evaluate_skill(
+                skill_path=args.baseline_skill,
+                eval_path=args.eval_file or _default_eval_path_for(args.skill),
+                include_lint=False,
+                runner=runner,
+            )
+            comparison = compare_eval_reports(report, baseline_report)
     except EvalError as exc:
         raise SystemExit(str(exc)) from exc
 
+    if comparison:
+        if args.json:
+            print(eval_comparison_to_json(comparison))
+        elif args.markdown or args.markdown_output:
+            markdown = format_eval_comparison_markdown(comparison)
+            _write_or_print_markdown(markdown, args.markdown_output)
+        else:
+            print(format_eval_comparison(comparison))
+        return 0 if comparison.passed else 1
+
     if args.json:
         print(eval_report_to_json(report))
+    elif args.markdown or args.markdown_output:
+        markdown = format_eval_report_markdown(report)
+        _write_or_print_markdown(markdown, args.markdown_output)
     else:
         print(format_eval_report(report))
     return 0 if report.passed else 1
@@ -369,6 +418,38 @@ def _cmd_eval_schema(args: argparse.Namespace) -> int:
     else:
         print(schema, end="")
     return 0
+
+
+def _create_eval_runner(args: argparse.Namespace) -> DryRunRunner | LLMEvalRunner:
+    if args.runner == "dry-run":
+        return DryRunRunner()
+    try:
+        client = create_llm_client(
+            provider=args.provider,
+            model=args.model,
+            api_base=args.api_base,
+            api_key=args.api_key,
+            timeout=args.timeout,
+        )
+        return LLMEvalRunner(client)
+    except LLMError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def _default_eval_path_for(skill_path: Path) -> Path:
+    skill_dir = skill_path.resolve()
+    if skill_dir.is_file() and skill_dir.name == "SKILL.md":
+        skill_dir = skill_dir.parent
+    return skill_dir / "evals" / "evals.json"
+
+
+def _write_or_print_markdown(markdown: str, output_path: Path | None) -> None:
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown, encoding="utf-8")
+        print(f"Wrote eval report to {output_path}")
+    else:
+        print(markdown, end="")
 
 
 def _read_brief(args: argparse.Namespace) -> str:
