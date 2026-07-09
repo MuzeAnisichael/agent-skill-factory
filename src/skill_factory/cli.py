@@ -34,6 +34,15 @@ from .registry import (
     load_registry,
     register_skill,
 )
+from .repair import (
+    RepairError,
+    apply_repairs,
+    format_repair_plan,
+    format_repair_result,
+    plan_repairs,
+    repair_plan_to_json,
+    repair_result_to_json,
+)
 from .runner import DryRunRunner, LLMEvalRunner
 from .schemas import eval_schema_json
 
@@ -207,6 +216,29 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser.add_argument("--json", action="store_true", help="Print install result as JSON.")
     install_parser.set_defaults(func=_cmd_install)
 
+    repair_parser = subparsers.add_parser("repair", help="Plan or apply bounded Skill repairs.")
+    repair_subparsers = repair_parser.add_subparsers(required=True)
+
+    repair_plan_parser = repair_subparsers.add_parser("plan", help="Create a repair plan without editing files.")
+    repair_plan_parser.add_argument("skill", type=Path, help="Skill directory or SKILL.md file.")
+    repair_plan_parser.add_argument("--eval-file", type=Path, help="Eval JSON file.")
+    repair_plan_parser.add_argument("--no-eval", action="store_true", help="Skip eval-driven repair planning.")
+    repair_plan_parser.add_argument("--max-lines", type=int, default=500, help="Maximum SKILL.md body line count.")
+    repair_plan_parser.add_argument("--json", action="store_true", help="Print the repair plan as JSON.")
+    _add_eval_runner_args(repair_plan_parser)
+    repair_plan_parser.set_defaults(func=_cmd_repair_plan)
+
+    repair_apply_parser = repair_subparsers.add_parser("apply", help="Apply safe bounded repairs and re-run checks.")
+    repair_apply_parser.add_argument("skill", type=Path, help="Skill directory or SKILL.md file.")
+    repair_apply_parser.add_argument("--eval-file", type=Path, help="Eval JSON file.")
+    repair_apply_parser.add_argument("--no-eval", action="store_true", help="Skip eval checks during repair.")
+    repair_apply_parser.add_argument("--max-lines", type=int, default=500, help="Maximum SKILL.md body line count.")
+    repair_apply_parser.add_argument("--allow-risky", action="store_true", help="Allow risky repair actions.")
+    repair_apply_parser.add_argument("--dry-run", action="store_true", help="Plan repair without editing files.")
+    repair_apply_parser.add_argument("--json", action="store_true", help="Print the repair result as JSON.")
+    _add_eval_runner_args(repair_apply_parser)
+    repair_apply_parser.set_defaults(func=_cmd_repair_apply)
+
     eval_schema_parser = subparsers.add_parser("eval-schema", help="Print or write the eval JSON Schema.")
     eval_schema_parser.add_argument("--output", type=Path, help="Write the schema to a file instead of stdout.")
     eval_schema_parser.set_defaults(func=_cmd_eval_schema)
@@ -225,6 +257,16 @@ def _add_llm_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--api-base", help="Provider base URL.")
     parser.add_argument("--api-key", help="API key for OpenAI-compatible providers.")
     parser.add_argument("--timeout", type=float, default=60.0, help="LLM request timeout in seconds.")
+
+
+def _add_eval_runner_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--runner",
+        choices=("dry-run", "llm"),
+        default="dry-run",
+        help="Runner for eval-driven repair planning. Defaults to deterministic dry-run.",
+    )
+    _add_llm_args(parser)
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
@@ -407,6 +449,48 @@ def _cmd_install(args: argparse.Namespace) -> int:
     else:
         print(f"Installed Skill to {destination}")
     return 0
+
+
+def _cmd_repair_plan(args: argparse.Namespace) -> int:
+    runner = _create_eval_runner(args)
+    try:
+        plan = plan_repairs(
+            skill_path=args.skill,
+            eval_path=args.eval_file,
+            max_lines=args.max_lines,
+            include_eval=not args.no_eval,
+            runner=runner,
+        )
+    except RepairError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if args.json:
+        print(repair_plan_to_json(plan))
+    else:
+        print(format_repair_plan(plan))
+    return 0
+
+
+def _cmd_repair_apply(args: argparse.Namespace) -> int:
+    runner = _create_eval_runner(args)
+    try:
+        result = apply_repairs(
+            skill_path=args.skill,
+            eval_path=args.eval_file,
+            max_lines=args.max_lines,
+            include_eval=not args.no_eval,
+            runner=runner,
+            allow_risky=args.allow_risky,
+            dry_run=args.dry_run,
+        )
+    except RepairError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if args.json:
+        print(repair_result_to_json(result))
+    else:
+        print(format_repair_result(result))
+    return 0 if result.accepted else 1
 
 
 def _cmd_eval_schema(args: argparse.Namespace) -> int:
