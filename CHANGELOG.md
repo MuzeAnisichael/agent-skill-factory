@@ -8,6 +8,12 @@ The project follows a simple pre-release changelog until versioned releases begi
 
 ### Added
 
+- `v0.4.0` runner-backed eval lifecycle.
+- `runner_tests` eval file section for with-skill vs without-skill comparisons.
+- Deterministic dry-run eval runner for network-free CI.
+- Optional LLM eval runner using Ollama or OpenAI-compatible providers.
+- `skill-factory eval --runner`, `--markdown`, `--markdown-output`, and `--baseline-skill`.
+- Markdown eval reports and baseline Skill regression comparison.
 - `v0.3.0` local registry and export lifecycle.
 - `skill-factory registry add/list/show` for file-based Skill metadata.
 - `skill-factory export` for direct package export to Agent client directories.
