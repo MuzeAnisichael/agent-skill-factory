@@ -16,7 +16,7 @@ Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、
 
 ## 项目状态
 
-当前版本：`0.3.0`
+当前版本：`0.4.0`
 
 项目仍处于 alpha 阶段，但本地生命周期已经可以端到端使用：
 
@@ -26,10 +26,11 @@ Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、
 | Skill 包写入器 | 已完成 | 生成 `SKILL.md`、可选资源目录和 `agents/openai.yaml`。 |
 | LLM 规划 | 已完成 | 支持本地 Ollama 和 OpenAI-compatible API，输出结构化 `SkillPlan`。 |
 | 静态 linter | 进行中 | 覆盖命名、frontmatter、资源缺失、危险指令和 Python 脚本语法。 |
-| Eval runner | 进行中 | 已支持本地触发测试、任务断言、严格 schema 校验和 JSON 报告。 |
+| Eval runner | 进行中 | 已支持本地触发测试、任务断言、runner-backed eval、Markdown/JSON 报告和回归对比。 |
 | 本地注册表和导出 | 已完成 | 文件型 registry、源码哈希、风险摘要、eval 状态和客户端目录导出。 |
+| Runner 抽象 | 已完成 | 支持确定性的 dry-run runner，以及可选的 Ollama/OpenAI-compatible LLM runner。 |
 | Repair loop | 计划中 | 基于 lint/eval 失败进行受控修复。 |
-| Agent-backed eval | 计划中 | 在真实 Agent 运行中对比启用 Skill 前后的效果。 |
+| Agent-backed eval | 计划中 | 后续接入真实 Agent runtime、工具调用和 trace。 |
 
 ## 为什么做这个项目
 
@@ -80,7 +81,19 @@ skill-factory lint skills/release-note-builder
 ```bash
 skill-factory eval skills/release-note-builder
 skill-factory eval skills/release-note-builder --json
+skill-factory eval skills/release-note-builder --markdown-output eval-report.md
+skill-factory eval skills/release-note-builder --baseline-skill old-skills/release-note-builder
 skill-factory eval-schema --output docs/eval-schema.json
+```
+
+使用确定性的 dry-run runner 运行 runner-backed eval，或显式启用 LLM runner：
+
+```bash
+skill-factory eval skills/release-note-builder --runner dry-run
+skill-factory eval skills/release-note-builder \
+  --runner llm \
+  --provider ollama \
+  --model llama3.1
 ```
 
 注册并安装 Skill：
@@ -143,8 +156,8 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## 仓库结构
 
 ```text
-src/skill_factory/       核心 CLI、生成器、linter、evaluator、registry、schemas 和 LLM providers
-tests/                   CLI、规划、生成、lint、eval、registry 和 schema 的单元测试
+src/skill_factory/       核心 CLI、生成器、linter、evaluator、runner、registry、schemas 和 LLM providers
+tests/                   CLI、规划、生成、lint、eval、runner、registry 和 schema 的单元测试
 docs/                    架构、LLM provider、评测、注册表、安全和格式文档
 .github/                 CI、issue 模板和 PR 模板
 ROADMAP.md               开发计划和完成表
