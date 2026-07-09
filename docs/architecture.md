@@ -102,9 +102,22 @@ Runs isolated comparisons:
 
 - Trigger eval: should-trigger vs should-not-trigger prompts.
 - Output eval: realistic task cases with expected outcomes.
-- Baseline eval: with-skill vs without-skill or old-skill vs new-skill.
+- Runner eval: with-skill vs without-skill execution through a runner abstraction.
+- Baseline eval: old-skill vs new-skill regression comparison.
 - Cost eval: token count, runtime, and tool-call count.
 - Safety eval: attempts to trigger unsafe actions or data exposure.
+
+The current implementation includes:
+
+- Local trigger evals.
+- Package text assertions.
+- `runner_tests` with assertion score deltas.
+- A deterministic dry-run runner for CI.
+- An optional LLM runner backed by Ollama or an OpenAI-compatible API.
+- Markdown and JSON reports.
+- Baseline Skill comparison for regression gates.
+
+Real Agent runtime adapters, trace capture, cost metrics, and model-graded evals remain future work.
 
 ### 6. Repair Agent
 
