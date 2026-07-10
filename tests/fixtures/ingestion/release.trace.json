@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "project": "example"
+  },
+  "runs": [
+    {
+      "id": "run-success",
+      "task": "Draft release notes from the approved pull requests.",
+      "status": "success",
+      "summary": "The run grouped changes by customer impact and cited pull request identifiers.",
+      "tools": ["git log", "repository search"],
+      "constraints": ["Only include reviewed pull requests."]
+    },
+    {
+      "id": "run-failure",
+      "task": "Publish release notes with incomplete source data.",
+      "status": "failure",
+      "error": "The release date was missing from the approved source.",
+      "tools": ["repository search"]
+    }
+  ]
+}
