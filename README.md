@@ -12,19 +12,20 @@
 
 Agent Skill Factory is an open-source local toolchain for generating, validating, evaluating, registering, and exporting reusable Agent Skills.
 
-It turns real task briefs, documentation, codebase conventions, tool descriptions, and future agent traces into testable Skill packages instead of one long prompt.
+It turns real task briefs, documentation, codebase conventions, tool descriptions, and Agent traces into testable Skill packages instead of one long prompt.
 
 ## Project Status
 
-Current version: `0.5.0`
+Current version: `0.6.0`
 
 The project is still alpha, but the local lifecycle is now usable end to end:
 
 | Area | Status | Notes |
 |---|---|---|
-| Local CLI | Done | `init`, `plan`, `generate`, `lint`, `eval`, `repair`, `registry`, `export`, `install`, and `eval-schema`. |
+| Local CLI | Done | `init`, `ingest`, `plan`, `generate`, `lint`, `eval`, `repair`, registry/export/install, and schema commands. |
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
 | LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured `SkillPlan` generation. |
+| Source/trace ingestion | Done | Deterministic plans from UTF-8 files, directories, and successful or failed Agent traces. |
 | Static linter | In progress | Covers naming, frontmatter, missing resources, risky instructions, and Python syntax. |
 | Eval runner | In progress | Local trigger evals, task assertions, runner-backed evals, Markdown/JSON reports, and regression comparison. |
 | Local registry/export | Done | File-based registry, source hashes, risk summary, eval status, and client directory export. |
@@ -39,7 +40,7 @@ Agent Skills are a practical way to extend coding agents and workflow agents wit
 Agent Skill Factory focuses on the full local lifecycle:
 
 ```text
-source material -> skill planning -> skill generation -> lint -> eval -> registry -> export/install
+source material -> ingest/plan -> review -> generate -> lint -> eval -> registry -> export/install
 ```
 
 ## Skill Package Target
@@ -73,6 +74,17 @@ skill-factory generate \
   --brief "Create concise release notes grounded in repository changes." \
   --resources references,scripts \
   --output skills
+skill-factory lint skills/release-note-builder
+```
+
+Create a reviewable plan from local documents, code, and Agent traces, then generate from it:
+
+```bash
+skill-factory ingest docs src/example.py \
+  --trace traces/release.trace.json \
+  --name "Release Note Builder" \
+  --output skill-plan.json
+skill-factory generate --from-plan skill-plan.json --output skills
 skill-factory lint skills/release-note-builder
 ```
 
@@ -166,9 +178,9 @@ PYTHONPATH=src python -m unittest discover -s tests
 ## Repository Layout
 
 ```text
-src/skill_factory/       Core CLI, generator, linter, evaluator, repair, runner, registry, schemas, and LLM providers
-tests/                   Unit tests for CLI, planning, generation, linting, evals, repair, runner, registry, and schemas
-docs/                    Architecture, LLM providers, evaluation, registry, security, and format docs
+src/skill_factory/       Core CLI, ingestion, planning, generation, lint/eval/repair, registry, schemas, and LLM providers
+tests/                   Unit tests and offline fixtures for the local lifecycle
+docs/                    Architecture, ingestion, providers, evaluation, registry, security, and format docs
 .github/                 CI, issue templates, and PR template
 ROADMAP.md               Development plan and completion table
 ```
@@ -178,11 +190,13 @@ ROADMAP.md               Development plan and completion table
 - [Roadmap and Completion Table](ROADMAP.md)
 - [Architecture](docs/architecture.md)
 - [Development Plan](docs/development-plan.md)
+- [Source and Trace Ingestion](docs/ingestion.md)
 - [Skill Output Format](docs/skill-output-format.md)
 - [LLM Providers](docs/llm-providers.md)
 - [Evaluation Strategy](docs/evaluation.md)
 - [Repair Loop](docs/repair.md)
 - [Eval JSON Schema](docs/eval-schema.json)
+- [Trace JSON Schema](docs/trace-schema.json)
 - [Registry and Export](docs/registry.md)
 - [Security Model](docs/security-model.md)
 - [Contributing](CONTRIBUTING.md)
