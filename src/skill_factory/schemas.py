@@ -156,6 +156,55 @@ EVAL_SCHEMA: dict[str, Any] = {
     },
 }
 
+TRACE_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/MuzeAnisichael/agent-skill-factory/blob/main/docs/trace-schema.json",
+    "title": "Agent Skill Factory Trace File",
+    "description": "Schema for successful and failed Agent runs consumed by skill-factory ingest.",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["schema_version", "runs"],
+    "properties": {
+        "schema_version": {"const": 1},
+        "metadata": {"type": "object"},
+        "runs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/run"},
+        },
+    },
+    "$defs": {
+        "nonEmptyString": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+        },
+        "stringArray": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/nonEmptyString"},
+        },
+        "run": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["id", "task", "status"],
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmptyString"},
+                "task": {"$ref": "#/$defs/nonEmptyString"},
+                "status": {"type": "string", "enum": ["success", "failure"]},
+                "summary": {"type": "string"},
+                "output": {"type": "string"},
+                "error": {"type": "string"},
+                "tools": {"$ref": "#/$defs/stringArray"},
+                "constraints": {"$ref": "#/$defs/stringArray"},
+            },
+        },
+    },
+}
+
 
 def eval_schema_json() -> str:
     return json.dumps(EVAL_SCHEMA, indent=2, sort_keys=True) + "\n"
+
+
+def trace_schema_json() -> str:
+    return json.dumps(TRACE_SCHEMA, indent=2, sort_keys=True) + "\n"
