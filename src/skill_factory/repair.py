@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .evaluator import DEFAULT_EVAL_PATH, EvalError, evaluate_skill
 from .frontmatter import parse_frontmatter
-from .linter import DANGEROUS_PATTERNS, lint_skill
+from .linter import lint_skill
 from .models import LintReport, Severity
 from .naming import display_name
 from .runner import EvalRunner
+from .security import dangerous_messages
 
 
 @dataclass(frozen=True)
@@ -569,5 +569,4 @@ def _missing_positive_assertions(assertion: Any, skill_text: str) -> list[str]:
 
 
 def _looks_dangerous(value: str) -> bool:
-    lower = value.lower()
-    return any(re.search(pattern, lower, flags=re.IGNORECASE | re.DOTALL) for pattern in DANGEROUS_PATTERNS)
+    return bool(dangerous_messages(value))
