@@ -8,6 +8,13 @@ The project follows a simple pre-release changelog until versioned releases begi
 
 ### Added
 
+- `v0.6.0` deterministic source and Agent trace ingestion.
+- `skill-factory ingest` for files, directories, and successful or failed trace runs.
+- Versioned `SkillPlan` JSON with constraints, terminology, tool candidates, failure cases, source hashes, and review notes.
+- `generate --from-plan` for review-before-write workflows.
+- Source-backed `references/sources.md` generation without copying indexed documents.
+- Published Trace JSON Schema and `skill-factory trace-schema`.
+- Shared prompt-injection and dangerous-instruction filtering for ingestion, lint, and repair.
 - `v0.5.0` bounded repair loop.
 - `skill-factory repair plan` for reviewable repair plans.
 - `skill-factory repair apply` for safe deterministic edits with lint/eval reruns.
