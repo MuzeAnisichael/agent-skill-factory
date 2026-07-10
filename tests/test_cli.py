@@ -52,6 +52,36 @@ class CliTests(unittest.TestCase):
             self.assertEqual(generate_rc, 0)
             self.assertEqual(lint_rc, 0)
 
+    def test_ingest_plan_generate_and_lint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "skill-plan.json"
+            skills = root / "skills"
+
+            ingest_rc = self.run_cli(
+                [
+                    "ingest",
+                    str(Path(__file__).parent / "fixtures" / "ingestion" / "release-workflow"),
+                    "--trace",
+                    str(Path(__file__).parent / "fixtures" / "ingestion" / "release.trace.json"),
+                    "--name",
+                    "Release Note Builder",
+                    "--output",
+                    str(plan_path),
+                ]
+            )
+            generate_rc = self.run_cli(
+                ["generate", "--from-plan", str(plan_path), "--output", str(skills)]
+            )
+            lint_rc = self.run_cli(["lint", str(skills / "release-note-builder")])
+
+            self.assertEqual(ingest_rc, 0)
+            self.assertEqual(generate_rc, 0)
+            self.assertEqual(lint_rc, 0)
+            self.assertTrue(
+                (skills / "release-note-builder" / "references" / "sources.md").exists()
+            )
+
     def test_eval_success_returns_zero(self) -> None:
         rc = self.run_cli(["eval", str(FIXTURES / "release-note-builder")])
 
@@ -97,6 +127,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         schema = json.loads(output)
         self.assertEqual(schema["title"], "Agent Skill Factory Eval File")
+
+    def test_trace_schema_outputs_json_schema(self) -> None:
+        rc, output = self.run_cli_capture(["trace-schema"])
+
+        self.assertEqual(rc, 0)
+        schema = json.loads(output)
+        self.assertEqual(schema["title"], "Agent Skill Factory Trace File")
 
     def test_registry_add_list_and_install_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
