@@ -16,6 +16,8 @@ def create_skill(plan: SkillPlan, output_dir: Path, force: bool = False) -> Path
 
     skill_dir.mkdir(parents=True, exist_ok=True)
     selected_resources = tuple(resource for resource in plan.resources if resource in RESOURCE_DIRS)
+    if plan.sources and "references" not in selected_resources:
+        selected_resources = (*selected_resources, "references")
     for resource in selected_resources:
         (skill_dir / resource).mkdir(exist_ok=True)
 
@@ -26,7 +28,14 @@ def create_skill(plan: SkillPlan, output_dir: Path, force: bool = False) -> Path
     (agents_dir / "openai.yaml").write_text(_render_openai_yaml(plan), encoding="utf-8")
 
     if "references" in selected_resources:
-        (skill_dir / "references" / "domain.md").write_text(_render_reference(plan), encoding="utf-8")
+        if plan.sources:
+            (skill_dir / "references" / "sources.md").write_text(
+                _render_source_index(plan), encoding="utf-8"
+            )
+        else:
+            (skill_dir / "references" / "domain.md").write_text(
+                _render_reference(plan), encoding="utf-8"
+            )
     if "scripts" in selected_resources:
         (skill_dir / "scripts" / "helper.py").write_text(_render_helper_script(), encoding="utf-8")
     if "assets" in selected_resources:
@@ -41,7 +50,12 @@ def _render_skill_md(plan: SkillPlan, resources: tuple[str, ...]) -> str:
     brief = plan.brief.strip() or "Add concrete workflow details before publishing this Skill."
 
     resource_lines: list[str] = []
-    if "references" in resources:
+    if "references" in resources and plan.sources:
+        resource_lines.append(
+            "- Load `references/sources.md` when source provenance, terminology, observed tools, "
+            "or failure cases are needed."
+        )
+    elif "references" in resources:
         resource_lines.append("- Load `references/domain.md` only when domain details are needed.")
     if "scripts" in resources:
         resource_lines.append("- Prefer `scripts/helper.py` for deterministic repeated operations.")
@@ -53,6 +67,14 @@ def _render_skill_md(plan: SkillPlan, resources: tuple[str, ...]) -> str:
     examples = "\n".join(f"- {example}" for example in plan.examples if example.strip())
     if not examples:
         examples = "- Add one or two concrete user requests before publishing."
+
+    constraints = ""
+    if plan.constraints:
+        constraint_lines = "\n".join(f"- {constraint}" for constraint in plan.constraints)
+        constraints = f"""
+## Source-Grounded Rules
+
+{constraint_lines}"""
 
     return f"""---
 name: {skill_name}
@@ -76,6 +98,7 @@ description: {description}
 ## Resources
 
 {chr(10).join(resource_lines)}
+{constraints}
 
 ## Examples
 
@@ -110,6 +133,34 @@ Source brief:
 
 {plan.brief.strip()}
 """
+
+
+def _render_source_index(plan: SkillPlan) -> str:
+    source_lines = "\n".join(
+        f"- `{source.path}` ({source.kind}, {source.size_bytes} bytes, sha256 `{source.sha256}`)"
+        for source in plan.sources
+    )
+    terminology = _render_optional_list("Extracted Terminology", plan.terminology)
+    tools = _render_optional_list("Observed Tool Candidates", plan.tool_candidates)
+    failures = _render_optional_list("Observed Failure Cases", plan.failure_cases)
+    review_notes = _render_optional_list("Review Notes", plan.review_notes)
+    return f"""# Source Index
+
+Use the original materials as the source of truth. This file records provenance and compact
+extractions; it does not copy the indexed documents.
+
+## Sources
+
+{source_lines}
+{terminology}{tools}{failures}{review_notes}
+"""
+
+
+def _render_optional_list(title: str, items: tuple[str, ...]) -> str:
+    if not items:
+        return ""
+    lines = "\n".join(f"- {item}" for item in items)
+    return f"\n## {title}\n\n{lines}\n"
 
 
 def _render_helper_script() -> str:
