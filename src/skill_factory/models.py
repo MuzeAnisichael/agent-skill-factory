@@ -13,12 +13,26 @@ class Severity(str, Enum):
 
 
 @dataclass(frozen=True)
+class SourceReference:
+    path: str
+    sha256: str
+    kind: str = "document"
+    size_bytes: int = 0
+
+
+@dataclass(frozen=True)
 class SkillPlan:
     name: str
     description: str
     brief: str
     resources: tuple[str, ...] = ()
     examples: tuple[str, ...] = ()
+    constraints: tuple[str, ...] = ()
+    terminology: tuple[str, ...] = ()
+    tool_candidates: tuple[str, ...] = ()
+    failure_cases: tuple[str, ...] = ()
+    sources: tuple[SourceReference, ...] = ()
+    review_notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
