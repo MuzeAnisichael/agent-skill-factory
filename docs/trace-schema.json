@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "nonEmptyString": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "type": "string"
+    },
+    "run": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "error": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "output": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "success",
+            "failure"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "task": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "tools": {
+          "$ref": "#/$defs/stringArray"
+        }
+      },
+      "required": [
+        "id",
+        "task",
+        "status"
+      ],
+      "type": "object"
+    },
+    "stringArray": {
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "type": "array"
+    }
+  },
+  "$id": "https://github.com/MuzeAnisichael/agent-skill-factory/blob/main/docs/trace-schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for successful and failed Agent runs consumed by skill-factory ingest.",
+  "properties": {
+    "metadata": {
+      "type": "object"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/run"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "runs"
+  ],
+  "title": "Agent Skill Factory Trace File",
+  "type": "object"
+}
