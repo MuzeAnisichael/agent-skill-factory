@@ -54,6 +54,16 @@ Store:
 - Repair history.
 - Approval records.
 
+### Untrusted Ingestion
+
+Document and trace ingestion is read-only and bounded by file-count and byte limits. The ingestion
+layer rejects binary or non-UTF-8 input, stores hashes instead of copying full source files, and
+omits lines matching known destructive, exfiltration, approval-bypass, or prompt-injection
+patterns. Every omission is recorded in the reviewable `SkillPlan`.
+
+These filters are heuristic. A source-backed Skill still requires human review, lint, and
+task-specific evals before installation.
+
 ## Default Policy
 
 The default generated Skill should be read-only unless the source task explicitly requires state changes.
