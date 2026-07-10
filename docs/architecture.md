@@ -23,24 +23,24 @@ flowchart LR
 
 ### 1. Ingestion
 
-Normalizes source material into structured inputs:
+The deterministic ingestion layer normalizes untrusted local material into a versioned,
+reviewable `SkillPlan`:
 
-- User-provided task examples.
-- Existing SOPs, API docs, schemas, code conventions, and templates.
-- Agent traces from successful or failed task runs.
-- Tool descriptions from local functions, OpenAPI specs, or MCP servers.
+- Recursively indexes supported UTF-8 text and code files with explicit size limits.
+- Extracts task examples, constraints, terminology, and compact summaries.
+- Validates successful and failed Agent runs against the version 1 Trace contract.
+- Aggregates observed tools and failure cases without treating them as authorization.
+- Records relative source paths, sizes, kinds, and SHA-256 digests.
+- Omits known dangerous or prompt-injection lines and emits review notes.
 
-Output:
+The CLI separates ingestion from writes:
 
-```json
-{
-  "task_examples": [],
-  "source_documents": [],
-  "tool_candidates": [],
-  "constraints": [],
-  "failure_cases": []
-}
+```text
+skill-factory ingest -> review SkillPlan JSON -> skill-factory generate --from-plan
 ```
+
+This keeps heuristic extraction reviewable and allows offline CI fixtures. See
+[Source and Trace Ingestion](ingestion.md).
 
 ### 2. Skill Planner
 
@@ -58,10 +58,11 @@ The planner decides the target resources and how much freedom the Agent should h
 - Medium freedom: preferred patterns and pseudocode.
 - Low freedom: exact scripts or command sequences for fragile operations.
 
-The current implementation has two planning modes:
+The current implementation has three planning modes:
 
 - Deterministic CLI planning: user-provided `--name`, `--description`, `--brief`, `--resources`, and `--example` are converted into a `SkillPlan`.
 - LLM planning: local Ollama or an OpenAI-compatible API returns a structured JSON `SkillPlan`, then the deterministic generator writes the files.
+- Source planning: `ingest` converts documents, code, and traces into a versioned plan; `generate --from-plan` consumes the reviewed plan.
 
 LLM planning deliberately produces data, not files. This keeps file writes reviewable and makes lint/eval gates easier to enforce.
 
@@ -80,6 +81,7 @@ Generation rules:
 - Put triggering information in the frontmatter description.
 - Keep `SKILL.md` concise.
 - Move long domain content into `references/`.
+- Write source provenance and compact trace observations to `references/sources.md`.
 - Add scripts when deterministic reliability matters.
 - Do not add auxiliary docs inside the generated Skill package.
 
