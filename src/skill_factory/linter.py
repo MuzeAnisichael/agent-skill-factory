@@ -7,6 +7,7 @@ from pathlib import Path
 from .frontmatter import parse_frontmatter
 from .models import LintReport, Severity
 from .naming import NAME_PATTERN
+from .security import DANGEROUS_PATTERNS
 
 ALLOWED_FRONTMATTER_KEYS = {"name", "description"}
 AUXILIARY_DOC_NAMES = {
@@ -14,13 +15,6 @@ AUXILIARY_DOC_NAMES = {
     "INSTALLATION_GUIDE.md",
     "QUICK_REFERENCE.md",
     "CHANGELOG.md",
-}
-DANGEROUS_PATTERNS = {
-    r"\brm\s+-rf\b": "destructive recursive delete command",
-    r"\bremove-item\b.*\b-recurse\b": "destructive recursive delete command",
-    r"\bcurl\b.*\|\s*(?:sh|bash|powershell)": "download-and-execute shell pipeline",
-    r"\bsecrets?\b.*\b(send|post|upload|exfiltrate)\b": "secret exfiltration language",
-    r"\bdisable\b.*\b(security|approval|sandbox|guardrail)\b": "security bypass language",
 }
 GENERIC_FILLER = (
     "best practices",
@@ -30,6 +24,7 @@ GENERIC_FILLER = (
     "do the task",
 )
 RESOURCE_REF_PATTERN = re.compile(r"(?:references|scripts|assets)/[A-Za-z0-9_.\-/]+")
+TEXT_RESOURCE_EXTENSIONS = {".json", ".md", ".rst", ".toml", ".txt", ".yaml", ".yml"}
 
 
 def lint_skill(path: Path, max_lines: int = 500) -> LintReport:
@@ -57,6 +52,7 @@ def lint_skill(path: Path, max_lines: int = 500) -> LintReport:
     _lint_body(report, skill_file, frontmatter.body, max_lines)
     _lint_resource_references(report, skill_dir, frontmatter.body)
     _lint_resource_layout(report, skill_dir)
+    _lint_text_resources(report, skill_dir)
     _lint_scripts(report, skill_dir)
 
     return report
@@ -152,9 +148,9 @@ def _lint_body(report: LintReport, skill_file: Path, body: str, max_lines: int) 
         )
 
     lower_body = body.lower()
-    for pattern, message in DANGEROUS_PATTERNS.items():
-        if re.search(pattern, lower_body, flags=re.IGNORECASE | re.DOTALL):
-            report.add(Severity.ERROR, "security.dangerous_instruction", message, skill_file)
+    _add_dangerous_findings(
+        report, skill_file, lower_body, code="security.dangerous_instruction"
+    )
 
     filler_hits = [phrase for phrase in GENERIC_FILLER if phrase in lower_body]
     if len(filler_hits) >= 3:
@@ -217,9 +213,7 @@ def _lint_scripts(report: LintReport, skill_dir: Path) -> None:
         if not script.is_file():
             continue
         text = script.read_text(encoding="utf-8", errors="replace")
-        for pattern, message in DANGEROUS_PATTERNS.items():
-            if re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL):
-                report.add(Severity.ERROR, "security.dangerous_script", message, script)
+        _add_dangerous_findings(report, script, text, code="security.dangerous_script")
         if script.suffix == ".py":
             try:
                 compile(text, str(script), "exec")
@@ -230,3 +224,23 @@ def _lint_scripts(report: LintReport, skill_dir: Path) -> None:
                     f"Python syntax error: {exc.msg} at line {exc.lineno}.",
                     script,
                 )
+
+
+def _lint_text_resources(report: LintReport, skill_dir: Path) -> None:
+    for directory_name in ("references", "assets"):
+        directory = skill_dir / directory_name
+        if not directory.is_dir():
+            continue
+        for path in directory.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in TEXT_RESOURCE_EXTENSIONS:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            _add_dangerous_findings(report, path, text, code="security.dangerous_resource")
+
+
+def _add_dangerous_findings(
+    report: LintReport, path: Path, text: str, *, code: str
+) -> None:
+    for pattern, message in DANGEROUS_PATTERNS:
+        if re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL):
+            report.add(Severity.ERROR, code, message, path)
