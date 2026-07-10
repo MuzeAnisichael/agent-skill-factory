@@ -27,6 +27,7 @@ The project currently has no runtime dependencies. Keep it that way unless a dep
 - Static lint rules.
 - Eval runners.
 - Repair-loop strategies.
+- Source and trace ingestion extractors.
 - Export adapters.
 - Documentation and examples.
 
@@ -52,4 +53,5 @@ Maintainers should review for:
 - Risk of unsafe generated instructions.
 - Regressions in CLI output.
 - Cross-platform path handling.
+- Deterministic ingestion output and source-attribution behavior.
 - Clarity of user-facing error messages.
