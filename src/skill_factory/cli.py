@@ -18,11 +18,18 @@ from .evaluator import (
     format_eval_report_markdown,
 )
 from .generator import RESOURCE_DIRS, create_skill
+from .ingestion import (
+    DEFAULT_MAX_FILES,
+    DEFAULT_MAX_FILE_BYTES,
+    DEFAULT_MAX_TOTAL_BYTES,
+    IngestionError,
+    ingest_sources,
+)
 from .linter import format_report, lint_skill, report_to_json
 from .llm import LLMError, create_llm_client
 from .models import SkillPlan
 from .naming import normalize_skill_name
-from .planner import plan_skill_with_llm, skill_plan_to_dict
+from .planner import load_skill_plan, plan_skill_with_llm, skill_plan_to_dict
 from .registry import (
     DEFAULT_REGISTRY_PATH,
     EXPORT_TARGETS,
@@ -44,7 +51,7 @@ from .repair import (
     repair_result_to_json,
 )
 from .runner import DryRunRunner, LLMEvalRunner
-from .schemas import eval_schema_json
+from .schemas import eval_schema_json, trace_schema_json
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -66,11 +73,47 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--skills-dir", default="skills", help="Directory for generated Skills.")
     init_parser.set_defaults(func=_cmd_init)
 
+    ingest_parser = subparsers.add_parser(
+        "ingest", help="Create a reviewable SkillPlan from local sources and Agent traces."
+    )
+    ingest_parser.add_argument("sources", nargs="*", type=Path, help="Text files or directories.")
+    ingest_parser.add_argument(
+        "--trace",
+        action="append",
+        type=Path,
+        default=[],
+        help="Agent trace JSON file. Can be repeated.",
+    )
+    ingest_parser.add_argument("--name", help="Preferred Skill name. Defaults to the first source name.")
+    ingest_parser.add_argument("--description", help="Preferred frontmatter description.")
+    ingest_parser.add_argument("--output", type=Path, help="Write SkillPlan JSON instead of printing it.")
+    ingest_parser.add_argument(
+        "--max-files", type=int, default=DEFAULT_MAX_FILES, help="Maximum number of indexed files."
+    )
+    ingest_parser.add_argument(
+        "--max-file-bytes",
+        type=int,
+        default=DEFAULT_MAX_FILE_BYTES,
+        help="Maximum bytes per source file.",
+    )
+    ingest_parser.add_argument(
+        "--max-total-bytes",
+        type=int,
+        default=DEFAULT_MAX_TOTAL_BYTES,
+        help="Maximum bytes across all source files.",
+    )
+    ingest_parser.set_defaults(func=_cmd_ingest)
+
     generate_parser = subparsers.add_parser("generate", help="Generate a draft Skill package.")
     generate_parser.add_argument("--name", help="Skill name or title.")
     generate_parser.add_argument("--description", default="", help="Frontmatter description.")
     generate_parser.add_argument("--brief", default="", help="Short task or workflow brief.")
     generate_parser.add_argument("--from-file", type=Path, help="Read the brief from a text file.")
+    generate_parser.add_argument(
+        "--from-plan",
+        type=Path,
+        help="Generate from a reviewed SkillPlan JSON file.",
+    )
     generate_parser.add_argument(
         "--resources",
         default="",
@@ -243,6 +286,12 @@ def build_parser() -> argparse.ArgumentParser:
     eval_schema_parser.add_argument("--output", type=Path, help="Write the schema to a file instead of stdout.")
     eval_schema_parser.set_defaults(func=_cmd_eval_schema)
 
+    trace_schema_parser = subparsers.add_parser(
+        "trace-schema", help="Print or write the Agent trace JSON Schema."
+    )
+    trace_schema_parser.add_argument("--output", type=Path, help="Write the schema instead of stdout.")
+    trace_schema_parser.set_defaults(func=_cmd_trace_schema)
+
     return parser
 
 
@@ -282,25 +331,59 @@ def _cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_generate(args: argparse.Namespace) -> int:
-    brief = _read_brief(args)
-    resources = _parse_resources(args.resources)
-    if args.llm:
-        plan = _create_llm_plan(args, brief, resources)
+def _cmd_ingest(args: argparse.Namespace) -> int:
+    try:
+        plan = ingest_sources(
+            source_paths=args.sources,
+            trace_paths=args.trace,
+            name=args.name,
+            description=args.description,
+            max_files=args.max_files,
+            max_file_bytes=args.max_file_bytes,
+            max_total_bytes=args.max_total_bytes,
+        )
+    except IngestionError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    payload = json.dumps(skill_plan_to_dict(plan), indent=2, sort_keys=True) + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(payload, encoding="utf-8")
+        print(f"Wrote SkillPlan to {args.output}")
     else:
-        if not args.name:
-            raise SystemExit("--name is required unless --llm is used.")
-        skill_name = normalize_skill_name(args.name)
-        description = args.description.strip() or (
-            f"Use this skill when the agent needs to complete {skill_name} tasks with a reusable workflow."
-        )
-        plan = SkillPlan(
-            name=skill_name,
-            description=description,
-            brief=brief,
-            resources=resources,
-            examples=tuple(args.example),
-        )
+        print(payload, end="")
+    return 0
+
+
+def _cmd_generate(args: argparse.Namespace) -> int:
+    if args.from_plan:
+        if _has_plan_input_conflicts(args):
+            raise SystemExit(
+                "--from-plan cannot be combined with manual or LLM planning options."
+            )
+        try:
+            plan = load_skill_plan(args.from_plan)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    else:
+        brief = _read_brief(args)
+        resources = _parse_resources(args.resources)
+        if args.llm:
+            plan = _create_llm_plan(args, brief, resources)
+        else:
+            if not args.name:
+                raise SystemExit("--name is required unless --llm or --from-plan is used.")
+            skill_name = normalize_skill_name(args.name)
+            description = args.description.strip() or (
+                f"Use this skill when the agent needs to complete {skill_name} tasks with a reusable workflow."
+            )
+            plan = SkillPlan(
+                name=skill_name,
+                description=description,
+                brief=brief,
+                resources=resources,
+                examples=tuple(args.example),
+            )
     skill_dir = create_skill(plan, args.output, force=args.force)
     print(f"Generated Skill at {skill_dir.resolve()}")
     return 0
@@ -504,6 +587,17 @@ def _cmd_eval_schema(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_trace_schema(args: argparse.Namespace) -> int:
+    schema = trace_schema_json()
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(schema, encoding="utf-8")
+        print(f"Wrote trace schema to {args.output}")
+    else:
+        print(schema, end="")
+    return 0
+
+
 def _create_eval_runner(args: argparse.Namespace) -> DryRunRunner | LLMEvalRunner:
     if args.runner == "dry-run":
         return DryRunRunner()
@@ -549,6 +643,23 @@ def _parse_resources(raw: str) -> tuple[str, ...]:
         joined = ", ".join(invalid_resources)
         raise SystemExit(f"Unknown resources: {joined}. Use references,scripts,assets.")
     return resources
+
+
+def _has_plan_input_conflicts(args: argparse.Namespace) -> bool:
+    return bool(
+        args.name
+        or args.description
+        or args.brief
+        or args.from_file
+        or args.resources
+        or args.example
+        or args.llm
+        or args.model
+        or args.api_base
+        or args.api_key
+        or args.provider != "ollama"
+        or args.timeout != 60.0
+    )
 
 
 def _create_llm_plan(
