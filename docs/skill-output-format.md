@@ -54,6 +54,11 @@ Use `references/` for:
 - Business rules.
 - Long examples.
 - Domain-specific playbooks.
+- `sources.md` provenance generated from reviewed ingestion plans.
+
+Source-backed generation records relative display paths, source kinds, byte sizes, SHA-256
+digests, compact terminology, observed tools, and failure cases. It does not copy the indexed
+documents into the Skill package.
 
 Use `scripts/` for:
 
