@@ -59,7 +59,8 @@ class RegistryTests(unittest.TestCase):
 
             destination = export_skill(skill_dir, output_dir=root / "exports")
 
-            self.assertEqual(destination, root / "exports" / "release-note-builder")
+            expected = root / "exports" / "release-note-builder"
+            self.assertTrue(destination.samefile(expected))
             self.assertTrue((destination / "SKILL.md").exists())
             self.assertTrue((destination / "agents" / "openai.yaml").exists())
 

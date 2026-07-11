@@ -72,8 +72,8 @@ provider health checks, and the first real Agent runtime adapter.
 | Export/install | Direct export and registry-based install to local client directories | Packaged archives and hosted registry adapters |
 | Source/trace ingestion | Recursive bounded reads, deterministic extraction, Trace validation, hashes, review notes | More formats and source-aware eval generation |
 | Tests | Unit tests and offline fixtures for CLI, ingestion, generation, lint, planning, eval, repair, runner, registry, schema | Fixture matrix and CI coverage expansion |
-| Documentation | Architecture, ingestion, format, eval, repair, registry, security, roadmap, bilingual README | More contributor examples |
-| CI | Workflow file added | Add lint/type checks when tool choices stabilize |
+| Documentation | Indexed architecture, ingestion, format, eval, repair, registry, security, roadmap, and bilingual README | More contributor examples |
+| CI | Compile and unit-test matrix for Python 3.10-3.12 on Linux and Windows | Add packaging and type checks when tool choices stabilize |
 
 ## Prioritized Backlog
 
