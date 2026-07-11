@@ -8,10 +8,21 @@ Use Python 3.10 or newer.
 
 ```bash
 python -m pip install -e .
-PYTHONPATH=src python -m unittest discover -s tests
+python -m unittest discover -s tests -v
 ```
 
+An editable install is the simplest cross-platform setup. To run directly from a checkout without installing, set `PYTHONPATH=src` on macOS/Linux or `$env:PYTHONPATH = "src"` in PowerShell before invoking Python.
+
 The project currently has no runtime dependencies. Keep it that way unless a dependency removes meaningful complexity.
+
+Before opening a pull request, run:
+
+```bash
+python -m compileall -q src
+python -m unittest discover -s tests -v
+```
+
+GitHub Actions runs these checks on Python 3.10-3.12 on Linux and Windows.
 
 ## Development Principles
 

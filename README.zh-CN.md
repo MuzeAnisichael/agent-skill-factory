@@ -8,11 +8,18 @@
 [![CI](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-0.6.0-1769aa.svg)](CHANGELOG.md)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](ROADMAP.md)
 
 Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、评测、注册和导出可复用的 Agent Skills。
 
 它的目标是把真实任务说明、文档、代码库规范、工具描述以及 Agent trace 转化为可测试的 Skill 包，而不是只生成一段很长的 prompt。
+
+```text
+来源与 trace -> 可审阅计划 -> Skill 包 -> lint/eval -> repair -> registry -> export
+```
+
+**本地优先、写入前审阅、无运行时依赖。** LLM 是可选能力：可以使用本地 Ollama、OpenAI-compatible API，也可以完全使用确定性的离线工作流。
 
 ## 项目状态
 
@@ -32,6 +39,29 @@ Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、
 | Runner 抽象 | 已完成 | 支持确定性的 dry-run runner，以及可选的 Ollama/OpenAI-compatible LLM runner。 |
 | Repair loop | 已完成 | 支持受控修复计划、安全确定性编辑、重跑 lint/eval，并在回归时回滚。 |
 | Agent-backed eval | 计划中 | 后续接入真实 Agent runtime、工具调用和 trace。 |
+
+当前测试套件包含 58 个离线单元测试和 CLI 测试。CI 在 Linux 和 Windows 上使用 Python 3.10-3.12 运行完整测试。
+
+## 项目范围和边界
+
+Agent Skill Factory 是 Skill 生命周期的精简无界面核心。它既可以直接通过 CLI 使用，也可以作为未来桌面端、Web、课程或实验室工作区的底层模块。
+
+当前已经包含：
+
+- 确定性和 LLM 辅助的 `SkillPlan` 创建
+- 带来源记录的本地资料与 Agent trace 摄取
+- Skill 包生成、lint、eval 和受控 repair
+- 本地 registry 元数据、导出和安装
+- 本地 Ollama 和 OpenAI-compatible 模型 provider
+
+当前尚未实现：
+
+- 图形界面或托管服务
+- 真实 Agent runtime 适配器和自动 trace 采集
+- 多用户工作区、审核流程或云同步
+- 包签名、能力权限或公共市场
+
+这些边界是有意保留的。未来托管协作层应复用同一套经过测试的核心，而不是重复实现校验和安全规则。
 
 ## 为什么做这个项目
 
@@ -63,7 +93,7 @@ skill-name/
 - Python 3.10+
 - Git
 
-从源码运行：
+从源码安装：
 
 ```bash
 python -m pip install -e .
@@ -76,6 +106,8 @@ skill-factory generate \
   --output skills
 skill-factory lint skills/release-note-builder
 ```
+
+以上命令先创建一个 Skill 草案，再检查其元数据、目录结构、资源引用、指令和脚本。
 
 从本地文档、代码和 Agent trace 创建可审阅计划，再据此生成 Skill：
 
@@ -161,7 +193,7 @@ skill-factory plan \
   --brief "Create a Skill for reviewing Terraform changes."
 ```
 
-不安装包，直接从源码运行：
+在 macOS 或 Linux 上不安装包，直接从源码运行：
 
 ```bash
 PYTHONPATH=src python -m skill_factory --version
@@ -169,10 +201,20 @@ PYTHONPATH=src python -m skill_factory lint skills/release-note-builder
 PYTHONPATH=src python -m skill_factory registry list
 ```
 
-运行测试：
+在 PowerShell 中不安装包，直接从源码运行：
 
-```bash
-PYTHONPATH=src python -m unittest discover -s tests
+```powershell
+$env:PYTHONPATH = "src"
+python -m skill_factory --version
+python -m skill_factory lint skills/release-note-builder
+python -m skill_factory registry list
+```
+
+从源码目录运行测试：
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m unittest discover -s tests -v
 ```
 
 ## 仓库结构
@@ -182,11 +224,13 @@ src/skill_factory/       核心 CLI、摄取、规划、生成、lint/eval/repai
 tests/                   覆盖本地生命周期的单元测试和离线 fixtures
 docs/                    架构、摄取、LLM provider、评测、注册表、安全和格式文档
 .github/                 CI、issue 模板和 PR 模板
+docs/README.md           按工作流组织的文档入口
 ROADMAP.md               开发计划和完成表
 ```
 
 ## 文档
 
+- [文档索引](docs/README.md)
 - [路线图和完成表](ROADMAP.md)
 - [架构](docs/architecture.md)
 - [开发计划](docs/development-plan.md)
@@ -201,6 +245,12 @@ ROADMAP.md               开发计划和完成表
 - [安全模型](docs/security-model.md)
 - [贡献指南](CONTRIBUTING.md)
 - [安全政策](SECURITY.md)
+
+## 贡献和支持
+
+贡献应保持核心精简，在可行时优先使用确定性实现，并确保文件或工具操作可以在执行前审阅。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和[路线图](ROADMAP.md)，再通过仓库 Issue 模板提交可复现的问题或范围清晰的功能建议。
+
+使用问题请参考 [SUPPORT.md](SUPPORT.md)。安全漏洞请按照 [SECURITY.md](SECURITY.md) 中的流程私下报告。
 
 ## 安全
 
