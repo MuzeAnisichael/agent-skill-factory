@@ -11,6 +11,10 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) con
 - Reorganized the bilingual README around project scope, workflows, current limitations, and contributor entry points.
 - Added a documentation index, repository-wide text settings, cross-platform CI, and dependency update configuration.
 
+### Fixed
+
+- Made the registry export test robust to equivalent Windows short and long path aliases.
+
 ## 0.6.0 - 2026-07-10
 
 ### Added
