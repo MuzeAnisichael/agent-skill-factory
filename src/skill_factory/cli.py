@@ -17,6 +17,7 @@ from .evaluator import (
     format_eval_report,
     format_eval_report_markdown,
 )
+from .eval_generation import generated_eval_json
 from .generator import RESOURCE_DIRS, create_skill
 from .ingestion import (
     DEFAULT_MAX_FILES,
@@ -30,6 +31,7 @@ from .llm import LLMError, create_llm_client
 from .models import SkillPlan
 from .naming import normalize_skill_name
 from .planner import load_skill_plan, plan_skill_with_llm, skill_plan_to_dict
+from .policies import BUILTIN_POLICIES, load_lint_policy
 from .registry import (
     DEFAULT_REGISTRY_PATH,
     EXPORT_TARGETS,
@@ -50,7 +52,7 @@ from .repair import (
     repair_plan_to_json,
     repair_result_to_json,
 )
-from .runner import DryRunRunner, LLMEvalRunner
+from .runner import DryRunRunner, EvalRunner, LLMEvalRunner, SubprocessEvalRunner
 from .schemas import eval_schema_json, trace_schema_json
 
 
@@ -154,10 +156,28 @@ def build_parser() -> argparse.ArgumentParser:
     _add_llm_args(plan_parser)
     plan_parser.set_defaults(func=_cmd_plan)
 
+    health_parser = subparsers.add_parser(
+        "provider-health", help="Check provider connectivity and configured model availability."
+    )
+    health_parser.add_argument("--json", action="store_true", help="Print a JSON health result.")
+    _add_llm_args(health_parser)
+    health_parser.set_defaults(func=_cmd_provider_health)
+
     lint_parser = subparsers.add_parser("lint", help="Lint one or more Skill packages.")
     lint_parser.add_argument("paths", nargs="+", type=Path, help="Skill directories or SKILL.md files.")
     lint_parser.add_argument("--json", action="store_true", help="Print JSON reports.")
-    lint_parser.add_argument("--max-lines", type=int, default=500, help="Maximum SKILL.md body line count.")
+    policy_group = lint_parser.add_mutually_exclusive_group()
+    policy_group.add_argument(
+        "--policy",
+        choices=tuple(sorted(BUILTIN_POLICIES)),
+        help="Built-in lint policy. Defaults to standard.",
+    )
+    policy_group.add_argument("--policy-file", type=Path, help="Custom lint policy JSON file.")
+    lint_parser.add_argument(
+        "--max-lines",
+        type=int,
+        help="Override the selected policy's maximum SKILL.md body line count.",
+    )
     lint_parser.set_defaults(func=_cmd_lint)
 
     eval_parser = subparsers.add_parser("eval", help="Run local evals for a Skill package.")
@@ -172,18 +192,24 @@ def build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("--markdown-output", type=Path, help="Write a Markdown eval report to a file.")
     eval_parser.add_argument("--no-lint", action="store_true", help="Skip lint aggregation during eval.")
     eval_parser.add_argument(
-        "--runner",
-        choices=("dry-run", "llm"),
-        default="dry-run",
-        help="Runner for runner_tests. Defaults to deterministic dry-run.",
-    )
-    eval_parser.add_argument(
         "--baseline-skill",
         type=Path,
         help="Evaluate a baseline Skill and fail if the candidate regresses.",
     )
-    _add_llm_args(eval_parser)
+    _add_eval_runner_args(eval_parser)
     eval_parser.set_defaults(func=_cmd_eval)
+
+    eval_generate_parser = subparsers.add_parser(
+        "eval-generate", help="Generate a reviewable eval draft from a SkillPlan."
+    )
+    eval_generate_parser.add_argument(
+        "--from-plan", type=Path, required=True, help="Reviewed SkillPlan JSON file."
+    )
+    eval_generate_parser.add_argument("--output", type=Path, help="Write eval JSON instead of stdout.")
+    eval_generate_parser.add_argument(
+        "--force", action="store_true", help="Overwrite an existing output file."
+    )
+    eval_generate_parser.set_defaults(func=_cmd_eval_generate)
 
     registry_parser = subparsers.add_parser("registry", help="Manage the local Skill registry.")
     registry_subparsers = registry_parser.add_subparsers(required=True)
@@ -311,9 +337,19 @@ def _add_llm_args(parser: argparse.ArgumentParser) -> None:
 def _add_eval_runner_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--runner",
-        choices=("dry-run", "llm"),
+        choices=("dry-run", "llm", "subprocess"),
         default="dry-run",
-        help="Runner for eval-driven repair planning. Defaults to deterministic dry-run.",
+        help="Runner for runner_tests. Defaults to deterministic dry-run.",
+    )
+    parser.add_argument(
+        "--runner-command",
+        help='Subprocess command encoded as a JSON string array, for example ["python","adapter.py"].',
+    )
+    parser.add_argument(
+        "--runner-timeout",
+        type=float,
+        default=60.0,
+        help="Subprocess runner timeout in seconds.",
     )
     _add_llm_args(parser)
 
@@ -397,14 +433,62 @@ def _cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_provider_health(args: argparse.Namespace) -> int:
+    try:
+        client = create_llm_client(
+            provider=args.provider,
+            model=args.model,
+            api_base=args.api_base,
+            api_key=args.api_key,
+            timeout=args.timeout,
+        )
+        health = client.health()
+    except LLMError as exc:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+        else:
+            print(f"FAIL {args.provider}: {exc}")
+        return 1
+
+    if args.json:
+        print(json.dumps(health.to_dict(), indent=2, sort_keys=True))
+    else:
+        status = "PASS" if health.ok else "FAIL"
+        print(f"{status} {health.provider} model={health.model}: {health.detail}")
+    return 0 if health.ok else 1
+
+
 def _cmd_lint(args: argparse.Namespace) -> int:
-    reports = [lint_skill(path, max_lines=args.max_lines) for path in args.paths]
+    try:
+        policy = load_lint_policy(name=args.policy or "standard", path=args.policy_file)
+        reports = [
+            lint_skill(path, max_lines=args.max_lines, policy=policy) for path in args.paths
+        ]
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     if args.json:
         payload = [report.to_dict() for report in reports]
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print("\n\n".join(format_report(report) for report in reports))
     return 1 if any(not report.passed for report in reports) else 0
+
+
+def _cmd_eval_generate(args: argparse.Namespace) -> int:
+    try:
+        plan = load_skill_plan(args.from_plan)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    payload = generated_eval_json(plan)
+    if args.output:
+        if args.output.exists() and not args.force:
+            raise SystemExit(f"Eval file already exists: {args.output}. Use --force to overwrite it.")
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(payload, encoding="utf-8")
+        print(f"Wrote eval draft to {args.output}")
+    else:
+        print(payload, end="")
+    return 0
 
 
 def _cmd_eval(args: argparse.Namespace) -> int:
@@ -598,9 +682,19 @@ def _cmd_trace_schema(args: argparse.Namespace) -> int:
     return 0
 
 
-def _create_eval_runner(args: argparse.Namespace) -> DryRunRunner | LLMEvalRunner:
+def _create_eval_runner(args: argparse.Namespace) -> EvalRunner:
+    if args.runner != "subprocess" and args.runner_command:
+        raise SystemExit("--runner-command can only be used with --runner subprocess.")
     if args.runner == "dry-run":
         return DryRunRunner()
+    if args.runner == "subprocess":
+        if not args.runner_command:
+            raise SystemExit("--runner-command is required for the subprocess runner.")
+        command = _parse_runner_command(args.runner_command)
+        try:
+            return SubprocessEvalRunner(command, timeout=args.runner_timeout)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     try:
         client = create_llm_client(
             provider=args.provider,
@@ -612,6 +706,18 @@ def _create_eval_runner(args: argparse.Namespace) -> DryRunRunner | LLMEvalRunne
         return LLMEvalRunner(client)
     except LLMError as exc:
         raise SystemExit(str(exc)) from exc
+
+
+def _parse_runner_command(raw: str) -> tuple[str, ...]:
+    try:
+        command = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SystemExit("--runner-command must be a valid JSON string array.") from exc
+    if not isinstance(command, list) or not command or any(
+        not isinstance(item, str) or not item for item in command
+    ):
+        raise SystemExit("--runner-command must be a non-empty JSON string array.")
+    return tuple(command)
 
 
 def _default_eval_path_for(skill_path: Path) -> Path:

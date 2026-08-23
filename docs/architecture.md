@@ -98,6 +98,10 @@ Checks basic correctness before any Agent run:
 - Instructions are not generic filler.
 - Dangerous permissions are flagged.
 
+The linter accepts built-in `standard`, `strict`, and `permissive` policies or a versioned custom
+JSON policy. Policies can change advisory thresholds and promote known warnings to errors; they
+cannot downgrade structural or security errors. See [Lint Policies](lint-policies.md).
+
 ### 5. Eval Runner
 
 Runs isolated comparisons:
@@ -116,10 +120,13 @@ The current implementation includes:
 - `runner_tests` with assertion score deltas.
 - A deterministic dry-run runner for CI.
 - An optional LLM runner backed by Ollama or an OpenAI-compatible API.
+- A subprocess adapter for real Agent runtimes using a JSON standard input/output contract.
+- Deterministic eval draft generation from `SkillPlan` examples, failures, and constraints.
 - Markdown and JSON reports.
 - Baseline Skill comparison for regression gates.
 
-Real Agent runtime adapters, trace capture, cost metrics, and model-graded evals remain future work.
+First-party runtime adapters, automatic trace capture, cost metrics, and model-graded evals remain
+future work. The generic adapter contract is documented in [Runner Adapters](runner-adapters.md).
 
 ### 6. Repair Agent
 

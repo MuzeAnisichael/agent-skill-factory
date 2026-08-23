@@ -7,7 +7,7 @@ from typing import Any
 
 from .frontmatter import parse_frontmatter
 from .linter import lint_skill
-from .runner import DryRunRunner, EvalRunner, SkillContext
+from .runner import DryRunRunner, EvalRunner, RunnerError, SkillContext
 
 DEFAULT_EVAL_PATH = Path("evals") / "evals.json"
 TRIGGER_CASE_KEYS = {"id", "query", "should_trigger", "keywords", "negative_keywords"}
@@ -446,8 +446,17 @@ def _evaluate_runner_case(case: Any, skill: dict[str, str], runner: EvalRunner) 
         min_score_delta = 1 if require_improvement else 0
 
     context = _runner_context(skill)
-    baseline_result = runner.run(prompt, context, use_skill=False)
-    skill_result = runner.run(prompt, context, use_skill=True)
+    try:
+        baseline_result = runner.run(prompt, context, use_skill=False)
+        skill_result = runner.run(prompt, context, use_skill=True)
+    except RunnerError as exc:
+        return EvalCaseResult(
+            case_id,
+            "runner",
+            False,
+            f"runner={runner.name} failed: {exc}",
+            {"runner": runner.name, "error": str(exc)},
+        )
 
     baseline_score, baseline_total = _score_runner_assertions(assertions, baseline_result.output)
     skill_score, skill_total = _score_runner_assertions(assertions, skill_result.output)

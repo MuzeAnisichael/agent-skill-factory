@@ -1,6 +1,8 @@
 # Evaluation Strategy
 
-A Skill is useful only if it improves Agent behavior. The project now includes local package evals plus runner-backed evals. The default runner is deterministic and network-free, while an optional LLM runner can call Ollama or an OpenAI-compatible API when explicitly requested.
+A Skill is useful only if it improves Agent behavior. The project includes local package evals,
+source-aware eval drafts, and runner-backed evals. The default runner is deterministic and
+network-free. Optional LLM and subprocess runners are used only when explicitly requested.
 
 ## Current Command
 
@@ -13,7 +15,10 @@ skill-factory eval path/to/skill --eval-file path/to/evals.json
 skill-factory eval path/to/skill --no-lint
 skill-factory eval path/to/skill --runner dry-run
 skill-factory eval path/to/skill --runner llm --provider ollama --model llama3.1
+skill-factory eval path/to/skill --runner subprocess \
+  --runner-command '["python","adapters/my_agent.py"]'
 skill-factory eval path/to/skill --baseline-skill old/path/to/skill
+skill-factory eval-generate --from-plan skill-plan.json --output evals/evals.json
 skill-factory eval-schema
 skill-factory eval-schema --output docs/eval-schema.json
 ```
@@ -23,6 +28,25 @@ Default eval path:
 ```text
 <skill>/evals/evals.json
 ```
+
+## Generate a Draft from Sources
+
+`eval-generate` converts a reviewed `SkillPlan` into schema-valid, deterministic draft cases:
+
+- successful examples become positive trigger cases
+- failed trace tasks become positive regression trigger cases
+- extracted constraints become package-grounding assertions
+- the plan brief is used as a fallback when no examples or constraints exist
+
+```bash
+skill-factory ingest docs --trace traces/run.json --output skill-plan.json
+skill-factory eval-generate \
+  --from-plan skill-plan.json \
+  --output skills/example/evals/evals.json
+```
+
+The command does not invent negative trigger examples or expected Agent output. Those require
+domain judgment and should be added during review. Existing files require `--force` to overwrite.
 
 ## Eval File Shape
 
@@ -181,6 +205,10 @@ skill-factory eval skills/release-note-builder \
 
 Use the LLM runner only when model access is available. CI should continue to use `dry-run`.
 
+The `subprocess` runner connects the same eval contract to an external Agent adapter through JSON
+standard input/output. It uses an argument array, `shell=False`, a timeout, and a 1 MB response
+limit. See [Runner Adapters](runner-adapters.md) for the protocol and trust boundary.
+
 Runner scoring:
 
 - `assertions` are scored against both baseline output and with-Skill output.
@@ -226,7 +254,8 @@ Future work should add model-graded quality, latency, tool-call, and safety metr
 
 ### Agent-Backed Eval
 
-Future support should integrate with actual Agent runtimes so the runner can evaluate tool use, trace quality, and task outcomes beyond text assertions.
+The generic subprocess adapter can now execute a real Agent runtime. First-party adapters,
+automatic trace capture, structured tool-call assertions, and runtime isolation remain future work.
 
 ### Safety Eval
 

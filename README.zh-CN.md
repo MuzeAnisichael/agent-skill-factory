@@ -8,7 +8,7 @@
 [![CI](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
-[![Version](https://img.shields.io/badge/version-0.6.0-1769aa.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.7.0-1769aa.svg)](CHANGELOG.md)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](ROADMAP.md)
 
 Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、评测、注册和导出可复用的 Agent Skills。
@@ -23,24 +23,24 @@ Agent Skill Factory 是一个开源的本地工具链，用于生成、校验、
 
 ## 项目状态
 
-当前版本：`0.6.0`
+当前版本：`0.7.0`
 
 项目仍处于 alpha 阶段，但本地生命周期已经可以端到端使用：
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| 本地 CLI | 已完成 | 支持 `init`、`ingest`、`plan`、`generate`、`lint`、`eval`、`repair`、注册/导出/安装和 schema 命令。 |
+| 本地 CLI | 已完成 | 支持 `init`、`ingest`、`plan`、`generate`、`lint`、`eval-generate`、`eval`、`repair`、provider health、注册/导出/安装和 schema 命令。 |
 | Skill 包写入器 | 已完成 | 生成 `SKILL.md`、可选资源目录和 `agents/openai.yaml`。 |
 | LLM 规划 | 已完成 | 支持本地 Ollama 和 OpenAI-compatible API，输出结构化 `SkillPlan`。 |
 | 来源/Trace 摄取 | 已完成 | 从 UTF-8 文件、目录以及成功或失败的 Agent trace 确定性生成计划。 |
-| 静态 linter | 进行中 | 覆盖命名、frontmatter、资源缺失、危险指令和 Python 脚本语法。 |
-| Eval runner | 进行中 | 已支持本地触发测试、任务断言、runner-backed eval、Markdown/JSON 报告和回归对比。 |
+| 静态 linter | 进行中 | 核心检查，以及 standard、strict、permissive 和自定义 JSON 策略。 |
+| Eval runner | 进行中 | 来源感知草案、触发/任务/runner 评测、报告和回归对比。 |
 | 本地注册表和导出 | 已完成 | 文件型 registry、源码哈希、风险摘要、eval 状态和客户端目录导出。 |
-| Runner 抽象 | 已完成 | 支持确定性的 dry-run runner，以及可选的 Ollama/OpenAI-compatible LLM runner。 |
+| Runner 抽象 | 已完成 | 支持 dry-run、可选 LLM 和 JSON subprocess Agent runner。 |
 | Repair loop | 已完成 | 支持受控修复计划、安全确定性编辑、重跑 lint/eval，并在回归时回滚。 |
-| Agent-backed eval | 计划中 | 后续接入真实 Agent runtime、工具调用和 trace。 |
+| Agent-backed eval | 进行中 | 已有通用 subprocess adapter；仍需专用 runtime adapter 和自动 trace 采集。 |
 
-当前测试套件包含 58 个离线单元测试和 CLI 测试。CI 在 Linux 和 Windows 上使用 Python 3.10-3.12 运行完整测试。
+当前测试套件包含 70 个离线单元测试和 CLI 测试。CI 在 Linux 和 Windows 上使用 Python 3.10-3.12 运行完整测试。
 
 ## 项目范围和边界
 
@@ -51,13 +51,15 @@ Agent Skill Factory 是 Skill 生命周期的精简无界面核心。它既可�
 - 确定性和 LLM 辅助的 `SkillPlan` 创建
 - 带来源记录的本地资料与 Agent trace 摄取
 - Skill 包生成、lint、eval 和受控 repair
+- 可配置 lint 策略和来源感知 eval 草案生成
 - 本地 registry 元数据、导出和安装
 - 本地 Ollama 和 OpenAI-compatible 模型 provider
+- 用于外部 Agent eval runner 的显式 subprocess 协议
 
 当前尚未实现：
 
 - 图形界面或托管服务
-- 真实 Agent runtime 适配器和自动 trace 采集
+- 专用 Agent adapter、runtime 隔离和自动 trace 采集
 - 多用户工作区、审核流程或云同步
 - 包签名、能力权限或公共市场
 
@@ -117,6 +119,9 @@ skill-factory ingest docs src/example.py \
   --name "Release Note Builder" \
   --output skill-plan.json
 skill-factory generate --from-plan skill-plan.json --output skills
+skill-factory eval-generate \
+  --from-plan skill-plan.json \
+  --output skills/release-note-builder/evals/evals.json
 skill-factory lint skills/release-note-builder
 ```
 
@@ -130,6 +135,13 @@ skill-factory eval skills/release-note-builder --baseline-skill old-skills/relea
 skill-factory eval-schema --output docs/eval-schema.json
 ```
 
+启用更严格的内置 lint 策略，或使用版本化的团队策略：
+
+```bash
+skill-factory lint skills/release-note-builder --policy strict
+skill-factory lint skills/release-note-builder --policy-file policies/team.json
+```
+
 使用确定性的 dry-run runner 运行 runner-backed eval，或显式启用 LLM runner：
 
 ```bash
@@ -138,6 +150,9 @@ skill-factory eval skills/release-note-builder \
   --runner llm \
   --provider ollama \
   --model llama3.1
+skill-factory eval skills/release-note-builder \
+  --runner subprocess \
+  --runner-command '["python","adapters/my_agent.py"]'
 ```
 
 规划并应用受控修复：
@@ -168,6 +183,8 @@ skill-factory export skills/release-note-builder --target claude-code --output .
 使用本地 Ollama 模型规划并生成：
 
 ```bash
+skill-factory provider-health --provider ollama --model llama3.1
+
 skill-factory plan \
   --provider ollama \
   --model llama3.1 \
@@ -237,7 +254,9 @@ ROADMAP.md               开发计划和完成表
 - [来源与 Trace 摄取](docs/ingestion.md)
 - [Skill 输出格式](docs/skill-output-format.md)
 - [LLM Providers](docs/llm-providers.md)
+- [Lint 策略](docs/lint-policies.md)
 - [评测策略](docs/evaluation.md)
+- [Runner Adapter](docs/runner-adapters.md)
 - [Repair Loop](docs/repair.md)
 - [Eval JSON Schema](docs/eval-schema.json)
 - [Trace JSON Schema](docs/trace-schema.json)

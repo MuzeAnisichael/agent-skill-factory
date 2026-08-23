@@ -1,8 +1,16 @@
+import json
+import sys
 import unittest
 from pathlib import Path
 
 from skill_factory.llm import LLMResponse
-from skill_factory.runner import DryRunRunner, LLMEvalRunner, SkillContext
+from skill_factory.runner import (
+    DryRunRunner,
+    LLMEvalRunner,
+    RunnerError,
+    SkillContext,
+    SubprocessEvalRunner,
+)
 
 
 class FakeClient:
@@ -43,6 +51,27 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result.metadata["provider"], "fake")
         self.assertIn("Skill context", client.prompt)
         self.assertIn("release-note-builder", client.prompt)
+
+    def test_subprocess_runner_uses_json_protocol(self) -> None:
+        script = (
+            "import json,sys; p=json.load(sys.stdin); "
+            "name=p['skill']['name'] if p['use_skill'] else 'none'; "
+            "print(json.dumps({'output': name, 'metadata': {'used': p['use_skill']}}))"
+        )
+        runner = SubprocessEvalRunner([sys.executable, "-c", script])
+
+        baseline = runner.run("Create release notes.", self.skill_context(), use_skill=False)
+        with_skill = runner.run("Create release notes.", self.skill_context(), use_skill=True)
+
+        self.assertEqual(baseline.output, "none")
+        self.assertEqual(with_skill.output, "release-note-builder")
+        self.assertEqual(with_skill.metadata["used"], "true")
+
+    def test_subprocess_runner_rejects_invalid_response(self) -> None:
+        runner = SubprocessEvalRunner([sys.executable, "-c", "print('not-json')"])
+
+        with self.assertRaisesRegex(RunnerError, "valid JSON"):
+            runner.run("Create release notes.", self.skill_context(), use_skill=False)
 
     def skill_context(self) -> SkillContext:
         return SkillContext(

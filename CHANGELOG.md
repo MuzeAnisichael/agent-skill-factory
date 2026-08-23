@@ -6,10 +6,21 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) con
 
 ## Unreleased
 
+## 0.7.0 - 2026-08-23
+
+### Added
+
+- Built-in `standard`, `strict`, and `permissive` lint policies plus versioned custom JSON policies.
+- `skill-factory eval-generate` for deterministic eval drafts from SkillPlan examples, failed tasks, constraints, and briefs.
+- `skill-factory provider-health` for Ollama and OpenAI-compatible endpoint and model discovery checks.
+- A subprocess Agent eval runner with a JSON stdin/stdout contract, explicit argument arrays, timeouts, and response validation.
+- Offline tests and documentation for policy, eval generation, provider health, and runner adapter behavior.
+
 ### Changed
 
 - Reorganized the bilingual README around project scope, workflows, current limitations, and contributor entry points.
 - Added a documentation index, repository-wide text settings, cross-platform CI, and dependency update configuration.
+- Converted runner failures into structured failed eval cases instead of uncaught provider or process errors.
 
 ### Fixed
 
