@@ -16,6 +16,21 @@ The LLM returns a structured `SkillPlan` JSON object:
 
 The deterministic generator then writes the Skill package from that plan.
 
+Check connectivity and confirm that the configured model is listed before planning:
+
+```bash
+skill-factory provider-health --provider ollama --model llama3.1
+skill-factory provider-health \
+  --provider openai-compatible \
+  --api-base https://api.openai.com/v1 \
+  --api-key "$OPENAI_API_KEY" \
+  --model "$OPENAI_MODEL" \
+  --json
+```
+
+The command is read-only. It returns a non-zero exit code when the endpoint is unreachable or the
+configured model is absent from the provider's model list.
+
 ## Local Ollama
 
 Default provider:
@@ -49,6 +64,7 @@ The Ollama provider calls:
 
 ```text
 POST /api/chat
+GET /api/tags (health check)
 ```
 
 ## OpenAI-Compatible API
@@ -76,6 +92,7 @@ The OpenAI-compatible provider calls:
 
 ```text
 POST /v1/chat/completions
+GET /v1/models (health check)
 ```
 
 ## Design Rules
@@ -84,4 +101,5 @@ POST /v1/chat/completions
 - CLI arguments override LLM plan fields.
 - `resources` is restricted to `references`, `scripts`, and `assets`.
 - Generated packages should still be linted before use.
+- Health checks verify discovery, not whether a model will complete a particular prompt correctly.
 - Future eval and repair steps should compare LLM-planned Skills against deterministic baselines.

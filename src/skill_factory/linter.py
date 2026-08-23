@@ -5,8 +5,9 @@ import re
 from pathlib import Path
 
 from .frontmatter import parse_frontmatter
-from .models import LintReport, Severity
+from .models import LintFinding, LintReport, Severity
 from .naming import NAME_PATTERN
+from .policies import LintPolicy, load_lint_policy, override_max_lines
 from .security import DANGEROUS_PATTERNS
 
 ALLOWED_FRONTMATTER_KEYS = {"name", "description"}
@@ -27,7 +28,12 @@ RESOURCE_REF_PATTERN = re.compile(r"(?:references|scripts|assets)/[A-Za-z0-9_.\-
 TEXT_RESOURCE_EXTENSIONS = {".json", ".md", ".rst", ".toml", ".txt", ".yaml", ".yml"}
 
 
-def lint_skill(path: Path, max_lines: int = 500) -> LintReport:
+def lint_skill(
+    path: Path,
+    max_lines: int | None = None,
+    policy: LintPolicy | None = None,
+) -> LintReport:
+    selected_policy = override_max_lines(policy or load_lint_policy(), max_lines)
     target = path.resolve()
     report = LintReport(target=target)
     skill_dir = target if target.is_dir() else target.parent
@@ -48,13 +54,22 @@ def lint_skill(path: Path, max_lines: int = 500) -> LintReport:
 
     name = frontmatter.data.get("name", "")
     description = frontmatter.data.get("description", "")
-    _lint_frontmatter(report, skill_file, skill_dir, name, description, frontmatter.data)
-    _lint_body(report, skill_file, frontmatter.body, max_lines)
+    _lint_frontmatter(
+        report,
+        skill_file,
+        skill_dir,
+        name,
+        description,
+        frontmatter.data,
+        selected_policy.description_min_length,
+    )
+    _lint_body(report, skill_file, frontmatter.body, selected_policy.max_lines)
     _lint_resource_references(report, skill_dir, frontmatter.body)
     _lint_resource_layout(report, skill_dir)
     _lint_text_resources(report, skill_dir)
     _lint_scripts(report, skill_dir)
 
+    _apply_policy(report, selected_policy)
     return report
 
 
@@ -81,6 +96,7 @@ def _lint_frontmatter(
     name: str,
     description: str,
     data: dict[str, str],
+    description_min_length: int,
 ) -> None:
     if not name:
         report.add(Severity.ERROR, "frontmatter.name.missing", "Missing frontmatter name.", skill_file)
@@ -108,11 +124,14 @@ def _lint_frontmatter(
         )
     else:
         lower_description = description.lower()
-        if len(description) < 60:
+        if len(description) < description_min_length:
             report.add(
                 Severity.WARNING,
                 "frontmatter.description.short",
-                "Description is short; include capability and trigger context.",
+                (
+                    "Description is short; include capability and trigger context "
+                    f"in at least {description_min_length} characters."
+                ),
                 skill_file,
             )
         if not any(marker in lower_description for marker in ("use when", "when", "for", "trigger")):
@@ -244,3 +263,20 @@ def _add_dangerous_findings(
     for pattern, message in DANGEROUS_PATTERNS:
         if re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL):
             report.add(Severity.ERROR, code, message, path)
+
+
+def _apply_policy(report: LintReport, policy: LintPolicy) -> None:
+    report.findings = [
+        LintFinding(
+            severity=(
+                Severity.ERROR
+                if finding.severity == Severity.WARNING
+                and finding.code in policy.warnings_as_errors
+                else finding.severity
+            ),
+            code=finding.code,
+            message=finding.message,
+            path=finding.path,
+        )
+        for finding in report.findings
+    ]

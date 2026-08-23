@@ -139,11 +139,11 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 
 ## Next Technical Tasks
 
-1. Add configurable lint policy profiles.
-2. Generate draft eval cases from ingested examples and failure cases.
-3. Add provider health checks and clearer connectivity diagnostics.
-4. Implement the first real Agent runtime adapter and trace collector.
-5. Add signed export packages and registry trust policies.
+1. Add signed export manifests and registry trust policies.
+2. Extend the subprocess protocol with structured trace and tool-call capture.
+3. Add one first-party Agent runtime adapter and isolation guidance.
+4. Add capability and dependency declarations to Skill metadata.
+5. Add model-graded evals and LLM-assisted repair behind existing deterministic gates.
 
 ## Completion Matrix
 
@@ -153,9 +153,9 @@ Start with Python for the CLI and validation tooling. Keep the core package smal
 | CLI foundation | `init`, `ingest`, `plan`, `generate`, `lint`, `eval`, `repair`, schema commands, `registry`, `export`, `install` | 100% |
 | LLM planning | Ollama and OpenAI-compatible structured `SkillPlan` generation | 100% |
 | Skill generation | Standard folder output with optional resources and source attribution | 90% |
-| Static linting | Core checks implemented | 75% |
-| Evaluation | Local trigger evals, task assertions, runner tests, config validation, JSON Schema, JSON/Markdown reports, fixture tests | 75% |
-| Runner layer | Dry-run runner and optional LLM runner | 100% |
+| Static linting | Core checks plus built-in and custom policy profiles | 85% |
+| Evaluation | Source-aware drafts, trigger/task/runner tests, validation, schema, reports, regression comparison | 85% |
+| Runner layer | Dry-run, optional LLM, and generic subprocess Agent runners | 100% |
 | Repair loop | Bounded plan/apply flow, deterministic edits, rollback on regression, manual security blocks | 100% |
 | Registry/export | Local registry, source hashes, risk/eval metadata, export and install commands | 100% |
-| Source/trace ingestion | Bounded deterministic extraction, Trace validation, versioned plans, source hashes, review notes | 100% |
+| Source/trace ingestion | Bounded extraction, Trace validation, versioned plans, source hashes, review notes, eval drafts | 100% |

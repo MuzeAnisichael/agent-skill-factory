@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Callable
 from urllib import error, request
 
 JsonDict = dict[str, Any]
 Transport = Callable[[str, JsonDict, dict[str, str], float], JsonDict]
+GetTransport = Callable[[str, dict[str, str], float], JsonDict]
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,23 @@ class LLMResponse:
     text: str
     provider: str
     model: str
+
+
+@dataclass(frozen=True)
+class ProviderHealth:
+    provider: str
+    model: str
+    endpoint: str
+    reachable: bool
+    model_available: bool
+    detail: str
+
+    @property
+    def ok(self) -> bool:
+        return self.reachable and self.model_available
+
+    def to_dict(self) -> JsonDict:
+        return {"ok": self.ok, **asdict(self)}
 
 
 class LLMError(RuntimeError):
@@ -55,6 +73,9 @@ class BaseLLMClient:
     def generate(self, prompt: str, system: str | None = None) -> LLMResponse:
         raise NotImplementedError
 
+    def health(self) -> ProviderHealth:
+        raise NotImplementedError
+
 
 class OllamaClient(BaseLLMClient):
     def __init__(
@@ -63,12 +84,14 @@ class OllamaClient(BaseLLMClient):
         base_url: str = "http://localhost:11434",
         timeout: float = 60.0,
         transport: Transport | None = None,
+        health_transport: GetTransport | None = None,
     ) -> None:
         self.provider = "ollama"
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._transport = transport or _post_json
+        self._health_transport = health_transport or _get_json
 
     def generate(self, prompt: str, system: str | None = None) -> LLMResponse:
         messages: list[dict[str, str]] = []
@@ -85,6 +108,32 @@ class OllamaClient(BaseLLMClient):
         text = _extract_ollama_text(data)
         return LLMResponse(text=text, provider=self.provider, model=self.model)
 
+    def health(self) -> ProviderHealth:
+        endpoint = f"{self.base_url}/api/tags"
+        data = self._health_transport(endpoint, {}, self.timeout)
+        models = data.get("models")
+        available_names = []
+        if isinstance(models, list):
+            for item in models:
+                if isinstance(item, dict):
+                    value = item.get("name") or item.get("model")
+                    if isinstance(value, str):
+                        available_names.append(value)
+        available = any(_model_names_match(self.model, item) for item in available_names)
+        detail = (
+            f"Configured model '{self.model}' is available."
+            if available
+            else f"Provider is reachable, but configured model '{self.model}' was not listed."
+        )
+        return ProviderHealth(
+            provider=self.provider,
+            model=self.model,
+            endpoint=endpoint,
+            reachable=True,
+            model_available=available,
+            detail=detail,
+        )
+
 
 class OpenAICompatibleClient(BaseLLMClient):
     def __init__(
@@ -94,6 +143,7 @@ class OpenAICompatibleClient(BaseLLMClient):
         api_key: str | None = None,
         timeout: float = 60.0,
         transport: Transport | None = None,
+        health_transport: GetTransport | None = None,
     ) -> None:
         self.provider = "openai-compatible"
         self.model = model
@@ -101,6 +151,7 @@ class OpenAICompatibleClient(BaseLLMClient):
         self.api_key = api_key
         self.timeout = timeout
         self._transport = transport or _post_json
+        self._health_transport = health_transport or _get_json
 
     def generate(self, prompt: str, system: str | None = None) -> LLMResponse:
         messages: list[dict[str, str]] = []
@@ -119,6 +170,33 @@ class OpenAICompatibleClient(BaseLLMClient):
         text = _extract_openai_text(data)
         return LLMResponse(text=text, provider=self.provider, model=self.model)
 
+    def health(self) -> ProviderHealth:
+        endpoint = f"{self.base_url}/models"
+        headers: dict[str, str] = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        data = self._health_transport(endpoint, headers, self.timeout)
+        models = data.get("data")
+        available_names = []
+        if isinstance(models, list):
+            for item in models:
+                if isinstance(item, dict) and isinstance(item.get("id"), str):
+                    available_names.append(item["id"])
+        available = self.model in available_names
+        detail = (
+            f"Configured model '{self.model}' is available."
+            if available
+            else f"Provider is reachable, but configured model '{self.model}' was not listed."
+        )
+        return ProviderHealth(
+            provider=self.provider,
+            model=self.model,
+            endpoint=endpoint,
+            reachable=True,
+            model_available=available,
+            detail=detail,
+        )
+
 
 def _post_json(url: str, payload: JsonDict, headers: dict[str, str], timeout: float) -> JsonDict:
     body = json.dumps(payload).encode("utf-8")
@@ -135,6 +213,25 @@ def _post_json(url: str, payload: JsonDict, headers: dict[str, str], timeout: fl
     except TimeoutError as exc:
         raise LLMError("LLM request timed out.") from exc
 
+    return _decode_json_response(response_body)
+
+
+def _get_json(url: str, headers: dict[str, str], timeout: float) -> JsonDict:
+    req = request.Request(url, headers=headers, method="GET")
+    try:
+        with request.urlopen(req, timeout=timeout) as response:
+            response_body = response.read().decode("utf-8")
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise LLMError(f"Provider health check failed with HTTP {exc.code}: {detail}") from exc
+    except error.URLError as exc:
+        raise LLMError(f"Provider health check failed: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise LLMError("Provider health check timed out.") from exc
+    return _decode_json_response(response_body)
+
+
+def _decode_json_response(response_body: str) -> JsonDict:
     try:
         data = json.loads(response_body)
     except json.JSONDecodeError as exc:
@@ -142,6 +239,12 @@ def _post_json(url: str, payload: JsonDict, headers: dict[str, str], timeout: fl
     if not isinstance(data, dict):
         raise LLMError("LLM provider returned a non-object JSON response.")
     return data
+
+
+def _model_names_match(configured: str, available: str) -> bool:
+    if configured == available:
+        return True
+    return available == f"{configured}:latest" or configured == f"{available}:latest"
 
 
 def _extract_ollama_text(data: JsonDict) -> str:

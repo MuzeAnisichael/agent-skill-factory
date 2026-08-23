@@ -18,12 +18,14 @@ This directory documents the current behavior and design boundaries of Agent Ski
 | [Source and Trace Ingestion](ingestion.md) | Build reviewable plans from files, directories, and Agent traces. |
 | [Skill Output Format](skill-output-format.md) | Required package structure and content placement rules. |
 | [LLM Providers](llm-providers.md) | Configure local Ollama or OpenAI-compatible APIs. |
+| [Lint Policies](lint-policies.md) | Select built-in lint profiles or define a versioned team policy. |
 
 ## Validate and Distribute
 
 | Document | Purpose |
 |---|---|
 | [Evaluation Strategy](evaluation.md) | Trigger, task, runner, and regression evaluation behavior. |
+| [Runner Adapters](runner-adapters.md) | Integrate external Agent runtimes through the subprocess protocol. |
 | [Repair Loop](repair.md) | Bounded automatic repairs, manual-review cases, and rollback rules. |
 | [Registry and Export](registry.md) | Local metadata, quality gates, install, and export targets. |
 | [Eval JSON Schema](eval-schema.json) | Machine-readable evaluation configuration contract. |

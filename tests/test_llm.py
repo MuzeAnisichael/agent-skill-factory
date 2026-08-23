@@ -53,6 +53,40 @@ class LLMClientTests(unittest.TestCase):
         with self.assertRaises(LLMError):
             client.generate("hello")
 
+    def test_ollama_health_matches_latest_model_tag(self) -> None:
+        def fake_health_transport(url, headers, timeout):
+            self.assertTrue(url.endswith("/api/tags"))
+            return {"models": [{"name": "llama3.1:latest"}]}
+
+        client = OllamaClient(
+            model="llama3.1",
+            health_transport=fake_health_transport,
+        )
+
+        health = client.health()
+
+        self.assertTrue(health.ok)
+        self.assertTrue(health.model_available)
+
+    def test_openai_health_reports_missing_model(self) -> None:
+        captured = {}
+
+        def fake_health_transport(url, headers, timeout):
+            captured["authorization"] = headers["Authorization"]
+            return {"data": [{"id": "different-model"}]}
+
+        client = OpenAICompatibleClient(
+            model="gpt-test",
+            api_key="test-key",
+            health_transport=fake_health_transport,
+        )
+
+        health = client.health()
+
+        self.assertFalse(health.ok)
+        self.assertTrue(health.reachable)
+        self.assertEqual(captured["authorization"], "Bearer test-key")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,7 @@
 [![CI](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzeAnisichael/agent-skill-factory/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
-[![Version](https://img.shields.io/badge/version-0.6.0-1769aa.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.7.0-1769aa.svg)](CHANGELOG.md)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](ROADMAP.md)
 
 Agent Skill Factory is an open-source local toolchain for generating, validating, evaluating, registering, and exporting reusable Agent Skills.
@@ -23,24 +23,24 @@ sources and traces -> reviewable plan -> Skill package -> lint/eval -> repair ->
 
 ## Project Status
 
-Current version: `0.6.0`
+Current version: `0.7.0`
 
 The project is still alpha, but the local lifecycle is now usable end to end:
 
 | Area | Status | Notes |
 |---|---|---|
-| Local CLI | Done | `init`, `ingest`, `plan`, `generate`, `lint`, `eval`, `repair`, registry/export/install, and schema commands. |
+| Local CLI | Done | `init`, `ingest`, `plan`, `generate`, `lint`, `eval-generate`, `eval`, `repair`, provider health, registry/export/install, and schema commands. |
 | Skill package writer | Done | Generates `SKILL.md`, optional resources, and `agents/openai.yaml`. |
 | LLM planning | Done | Supports local Ollama and OpenAI-compatible APIs for structured `SkillPlan` generation. |
 | Source/trace ingestion | Done | Deterministic plans from UTF-8 files, directories, and successful or failed Agent traces. |
-| Static linter | In progress | Covers naming, frontmatter, missing resources, risky instructions, and Python syntax. |
-| Eval runner | In progress | Local trigger evals, task assertions, runner-backed evals, Markdown/JSON reports, and regression comparison. |
+| Static linter | In progress | Core checks plus standard, strict, permissive, and custom JSON policy profiles. |
+| Eval runner | In progress | Source-aware drafts, trigger/task/runner evals, reports, and regression comparison. |
 | Local registry/export | Done | File-based registry, source hashes, risk summary, eval status, and client directory export. |
-| Runner abstraction | Done | Deterministic dry-run runner plus optional LLM runner for Ollama or OpenAI-compatible APIs. |
+| Runner abstraction | Done | Dry-run, optional LLM, and JSON subprocess Agent runners. |
 | Repair loop | Done | Bounded repair plans, safe deterministic edits, lint/eval reruns, and rollback on regression. |
-| Agent-backed evals | Planned | Deeper integration with real Agent runtimes and tool traces. |
+| Agent-backed evals | In progress | Generic subprocess adapter is available; first-party adapters and automatic trace capture remain. |
 
-The current test suite contains 58 offline unit and CLI tests. CI runs the suite on Python 3.10-3.12 on Linux and Windows.
+The current test suite contains 70 offline unit and CLI tests. CI runs the suite on Python 3.10-3.12 on Linux and Windows.
 
 ## Scope and Boundaries
 
@@ -51,13 +51,15 @@ Included today:
 - deterministic and LLM-assisted `SkillPlan` creation
 - source and Agent trace ingestion with provenance
 - Skill package generation, linting, evaluation, and bounded repair
+- configurable lint policies and source-aware eval draft generation
 - local registry metadata, export, and installation
 - local Ollama and OpenAI-compatible model providers
+- an explicit subprocess protocol for external Agent eval runners
 
 Not implemented yet:
 
 - a graphical interface or hosted service
-- live Agent runtime adapters and automatic trace capture
+- first-party Agent adapters, runtime isolation, and automatic trace capture
 - multi-user workspaces, review workflows, or cloud synchronization
 - package signing, capability permissions, or a public marketplace
 
@@ -117,6 +119,9 @@ skill-factory ingest docs src/example.py \
   --name "Release Note Builder" \
   --output skill-plan.json
 skill-factory generate --from-plan skill-plan.json --output skills
+skill-factory eval-generate \
+  --from-plan skill-plan.json \
+  --output skills/release-note-builder/evals/evals.json
 skill-factory lint skills/release-note-builder
 ```
 
@@ -130,6 +135,13 @@ skill-factory eval skills/release-note-builder --baseline-skill old-skills/relea
 skill-factory eval-schema --output docs/eval-schema.json
 ```
 
+Apply a stricter built-in lint policy or a versioned team policy:
+
+```bash
+skill-factory lint skills/release-note-builder --policy strict
+skill-factory lint skills/release-note-builder --policy-file policies/team.json
+```
+
 Run runner-backed evals with the deterministic dry-run runner, or explicitly use an LLM runner:
 
 ```bash
@@ -138,6 +150,9 @@ skill-factory eval skills/release-note-builder \
   --runner llm \
   --provider ollama \
   --model llama3.1
+skill-factory eval skills/release-note-builder \
+  --runner subprocess \
+  --runner-command '["python","adapters/my_agent.py"]'
 ```
 
 Plan and apply bounded repairs:
@@ -168,6 +183,8 @@ skill-factory export skills/release-note-builder --target claude-code --output .
 Use a local Ollama model to plan and generate:
 
 ```bash
+skill-factory provider-health --provider ollama --model llama3.1
+
 skill-factory plan \
   --provider ollama \
   --model llama3.1 \
@@ -237,7 +254,9 @@ ROADMAP.md               Development plan and completion table
 - [Source and Trace Ingestion](docs/ingestion.md)
 - [Skill Output Format](docs/skill-output-format.md)
 - [LLM Providers](docs/llm-providers.md)
+- [Lint Policies](docs/lint-policies.md)
 - [Evaluation Strategy](docs/evaluation.md)
+- [Runner Adapters](docs/runner-adapters.md)
 - [Repair Loop](docs/repair.md)
 - [Eval JSON Schema](docs/eval-schema.json)
 - [Trace JSON Schema](docs/trace-schema.json)

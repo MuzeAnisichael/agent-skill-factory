@@ -1,11 +1,14 @@
 import contextlib
 import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from skill_factory.cli import main
+from skill_factory.llm import ProviderHealth
 
 FIXTURES = Path(__file__).parent / "fixtures" / "skills"
 
@@ -134,6 +137,71 @@ class CliTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         schema = json.loads(output)
         self.assertEqual(schema["title"], "Agent Skill Factory Trace File")
+
+    def test_eval_generate_writes_reviewable_eval_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "skill-plan.json"
+            eval_path = root / "evals" / "evals.json"
+            self.run_cli(
+                [
+                    "ingest",
+                    str(Path(__file__).parent / "fixtures" / "ingestion" / "release-workflow"),
+                    "--name",
+                    "Release Note Builder",
+                    "--output",
+                    str(plan_path),
+                ]
+            )
+
+            rc = self.run_cli(
+                ["eval-generate", "--from-plan", str(plan_path), "--output", str(eval_path)]
+            )
+
+            payload = json.loads(eval_path.read_text(encoding="utf-8"))
+            self.assertEqual(rc, 0)
+            self.assertTrue(payload["trigger_tests"])
+            self.assertTrue(payload["task_tests"])
+
+    def test_provider_health_outputs_provider_result(self) -> None:
+        client = Mock()
+        client.health.return_value = ProviderHealth(
+            provider="ollama",
+            model="qwen3:4b",
+            endpoint="http://localhost:11434/api/tags",
+            reachable=True,
+            model_available=True,
+            detail="Configured model is available.",
+        )
+
+        with patch("skill_factory.cli.create_llm_client", return_value=client):
+            rc, output = self.run_cli_capture(
+                ["provider-health", "--model", "qwen3:4b", "--json"]
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(json.loads(output)["ok"])
+
+    def test_eval_accepts_subprocess_runner_command(self) -> None:
+        script = (
+            "import json,sys; p=json.load(sys.stdin); "
+            "o=p['skill']['body'] if p['use_skill'] else 'No Skill context was loaded'; "
+            "print(json.dumps({'output': o}))"
+        )
+        command = json.dumps([sys.executable, "-c", script])
+
+        rc = self.run_cli(
+            [
+                "eval",
+                str(FIXTURES / "release-note-builder"),
+                "--runner",
+                "subprocess",
+                "--runner-command",
+                command,
+            ]
+        )
+
+        self.assertEqual(rc, 0)
 
     def test_registry_add_list_and_install_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

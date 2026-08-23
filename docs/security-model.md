@@ -64,6 +64,15 @@ patterns. Every omission is recorded in the reviewable `SkillPlan`.
 These filters are heuristic. A source-backed Skill still requires human review, lint, and
 task-specific evals before installation.
 
+### External Runner Boundary
+
+The subprocess runner starts only an explicitly supplied argument array with `shell=False` and a
+timeout. It validates the adapter's JSON response and rejects non-zero exits or oversized standard
+output. It does not sandbox the process, restrict filesystem or network access, or approve Agent
+tool calls. Treat the configured adapter as trusted code and use an isolated account, container, or
+disposable workspace when evaluating untrusted Skills. Adapter logs and metadata must not contain
+secrets because failure details can be included in reports.
+
 ## Default Policy
 
 The default generated Skill should be read-only unless the source task explicitly requires state changes.
