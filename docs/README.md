@@ -17,6 +17,8 @@ This directory documents the current behavior and design boundaries of Agent Ski
 |---|---|
 | [Source and Trace Ingestion](ingestion.md) | Build reviewable plans from files, directories, and Agent traces. |
 | [Skill Output Format](skill-output-format.md) | Required package structure and content placement rules. |
+| [Practical Examples](../examples/README.md) | Three maintained student/research Skills and a reviewed generation plan. |
+| [v0.8 Verification](releases/v0.8.0.md) | Reproducible tests, package checks, migration and evidence limits. |
 | [LLM Providers](llm-providers.md) | Configure local Ollama or OpenAI-compatible APIs. |
 | [Lint Policies](lint-policies.md) | Select built-in lint profiles or define a versioned team policy. |
 

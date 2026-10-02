@@ -37,7 +37,10 @@ class PlannerTests(unittest.TestCase):
               "description": "Use this skill when the agent needs release notes from repository changes.",
               "brief": "Create release notes from merged pull requests.",
               "resources": ["references", "scripts"],
-              "examples": ["Create release notes for this branch."]
+              "examples": ["Create release notes for this branch."],
+              "workflow": ["Group reviewed changes by user impact."],
+              "quality_checks": ["Every claim cites a source change."],
+              "resource_files": [{"path": "references/categories.md", "content": "Breaking changes first.", "purpose": "Read when grouping changes."}]
             }
             """
         )
@@ -48,6 +51,9 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.resources, ("references", "scripts"))
         self.assertIn("Create release notes", plan.examples[0])
         self.assertIn("Release-note workflow source material", client.prompt)
+        self.assertEqual(plan.workflow, ("Group reviewed changes by user impact.",))
+        self.assertEqual(plan.quality_checks, ("Every claim cites a source change.",))
+        self.assertEqual(plan.resource_files[0].path, "references/categories.md")
 
     def test_cli_overrides_take_precedence(self) -> None:
         client = FakeClient(

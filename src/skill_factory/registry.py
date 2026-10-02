@@ -172,8 +172,10 @@ def hash_skill(skill_path: Path) -> dict[str, Any]:
 def _read_skill_metadata(skill_dir: Path) -> dict[str, str]:
     skill_file = skill_dir / "SKILL.md"
     parsed = parse_frontmatter(skill_file.read_text(encoding="utf-8"))
-    name = parsed.data.get("name", "")
-    description = parsed.data.get("description", "")
+    if parsed.errors:
+        raise RegistryError(f"Invalid Skill frontmatter: {'; '.join(parsed.errors)}")
+    name = parsed.string("name")
+    description = parsed.string("description")
     if not name:
         raise RegistryError("Cannot register Skill without frontmatter name.")
     return {"name": name, "description": description}

@@ -4,9 +4,15 @@
 
 | Profile | Description minimum | Body maximum | Warning behavior |
 |---|---:|---:|---|
-| `standard` | 60 characters | 500 lines | Warnings remain advisory |
-| `strict` | 80 characters | 300 lines | Known warning codes fail lint |
-| `permissive` | 40 characters | 800 lines | Warnings remain advisory |
+| `standard` | 60 units | 500 lines | Warnings remain advisory |
+| `strict` | 80 units | 300 lines | Known warning codes fail lint |
+| `permissive` | 40 units | 800 lines | Warnings remain advisory |
+
+For advisory length, CJK characters count as two units, others as one. The specification's
+1024-character maximum still counts actual characters. English word cues and Chinese cues such
+as `用于`, `适用` and `当…时` are accepted. These are heuristics, not semantic routing evaluation.
+Valid standard optional fields are supported; wrong types, duplicate YAML keys and length
+violations are structural errors under every profile.
 
 Use a built-in profile:
 
@@ -48,6 +54,8 @@ policy.
 - `body.generic_filler`
 - `body.too_long`
 - `body.trigger_in_body`
+- `body.unfinished`
+- `resource.unfinished`
 - `frontmatter.description.short`
 - `frontmatter.description.trigger_weak`
 - `frontmatter.extra_keys`

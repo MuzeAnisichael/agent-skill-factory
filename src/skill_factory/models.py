@@ -21,6 +21,13 @@ class SourceReference:
 
 
 @dataclass(frozen=True)
+class ResourceFile:
+    path: str
+    content: str
+    purpose: str
+
+
+@dataclass(frozen=True)
 class SkillPlan:
     name: str
     description: str
@@ -33,6 +40,9 @@ class SkillPlan:
     failure_cases: tuple[str, ...] = ()
     sources: tuple[SourceReference, ...] = ()
     review_notes: tuple[str, ...] = ()
+    workflow: tuple[str, ...] = ()
+    quality_checks: tuple[str, ...] = ()
+    resource_files: tuple[ResourceFile, ...] = ()
 
 
 @dataclass(frozen=True)

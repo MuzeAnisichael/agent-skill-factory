@@ -1,14 +1,15 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
 name = "agent-skill-factory"
-version = "0.7.0"
+version = "0.8.0"
 description = "Generate, lint, and evaluate reusable Agent Skills."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["agents", "skills", "llm", "code-generation", "developer-tools"]
 authors = [
   { name = "Agent Skill Factory contributors" }
@@ -17,14 +18,13 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Topic :: Software Development :: Code Generators"
 ]
-dependencies = []
+dependencies = ["PyYAML>=6.0.2,<7"]
 
 [project.urls]
 Homepage = "https://github.com/MuzeAnisichael/agent-skill-factory"
@@ -37,6 +37,9 @@ skill-factory = "skill_factory.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skill_factory"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "docs", "examples", "tools", "*.md", "LICENSE", "pyproject.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

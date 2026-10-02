@@ -11,6 +11,8 @@ WARNING_CODES = frozenset(
         "body.generic_filler",
         "body.too_long",
         "body.trigger_in_body",
+        "body.unfinished",
+        "resource.unfinished",
         "frontmatter.description.short",
         "frontmatter.description.trigger_weak",
         "frontmatter.extra_keys",

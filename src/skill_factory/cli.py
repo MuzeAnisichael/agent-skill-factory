@@ -130,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
     generate_parser.add_argument("--output", type=Path, default=Path("skills"), help="Output directory.")
     generate_parser.add_argument("--force", action="store_true", help="Overwrite an existing Skill folder.")
     generate_parser.add_argument(
+        "--step", action="append", default=[], help="Task-specific workflow step. Can be repeated."
+    )
+    generate_parser.add_argument(
+        "--check", action="append", default=[], help="Observable quality check. Can be repeated."
+    )
+    generate_parser.add_argument(
         "--llm",
         action="store_true",
         help="Use an LLM provider to create the SkillPlan before writing files.",
@@ -405,11 +411,16 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         brief = _read_brief(args)
         resources = _parse_resources(args.resources)
         if args.llm:
+            if args.step or args.check:
+                raise SystemExit("--step and --check are manual planning options; edit an LLM plan instead.")
             plan = _create_llm_plan(args, brief, resources)
         else:
             if not args.name:
                 raise SystemExit("--name is required unless --llm or --from-plan is used.")
-            skill_name = normalize_skill_name(args.name)
+            try:
+                skill_name = normalize_skill_name(args.name)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
             description = args.description.strip() or (
                 f"Use this skill when the agent needs to complete {skill_name} tasks with a reusable workflow."
             )
@@ -419,8 +430,13 @@ def _cmd_generate(args: argparse.Namespace) -> int:
                 brief=brief,
                 resources=resources,
                 examples=tuple(args.example),
+                workflow=tuple(step.strip() for step in args.step if step.strip()),
+                quality_checks=tuple(check.strip() for check in args.check if check.strip()),
             )
-    skill_dir = create_skill(plan, args.output, force=args.force)
+    try:
+        skill_dir = create_skill(plan, args.output, force=args.force)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(f"Generated Skill at {skill_dir.resolve()}")
     return 0
 
@@ -759,6 +775,8 @@ def _has_plan_input_conflicts(args: argparse.Namespace) -> bool:
         or args.from_file
         or args.resources
         or args.example
+        or args.step
+        or args.check
         or args.llm
         or args.model
         or args.api_base

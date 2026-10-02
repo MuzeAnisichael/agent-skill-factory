@@ -82,7 +82,7 @@ class IngestionTests(unittest.TestCase):
             self.assertEqual(skill_plan_to_dict(loaded), skill_plan_to_dict(plan))
             self.assertTrue(report.passed, [finding.to_dict() for finding in report.findings])
             self.assertIn("references/sources.md", skill_text)
-            self.assertIn("## Source-Grounded Rules", skill_text)
+            self.assertIn("Must cite the supplied change set.", skill_text)
             self.assertIn("sha256", source_index)
             self.assertNotIn("Group entries by user impact", source_index)
 
