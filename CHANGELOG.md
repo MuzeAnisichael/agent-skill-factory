@@ -6,7 +6,7 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) con
 
 ## Unreleased
 
-## 0.8.0 - 2026-10-02
+## 0.8.0 - 2026-10-03
 
 ### Added
 
