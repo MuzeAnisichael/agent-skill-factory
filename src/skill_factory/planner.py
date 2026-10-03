@@ -4,19 +4,26 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .generator import RESOURCE_DIRS
+from .generator import RESOURCE_DIRS, validate_resource_path
 from .llm import BaseLLMClient, LLMError
-from .models import SkillPlan, SourceReference
+from .models import ResourceFile, SkillPlan, SourceReference
 from .naming import normalize_skill_name
 
 SYSTEM_PROMPT = """You create concise, safe Agent Skill plans.
 Return only a single JSON object. Do not include Markdown fences.
 The JSON object must contain:
-- name: short lowercase skill name or title
+- name: short ASCII lowercase skill name (Chinese instructions may use an English identifier)
 - description: one sentence that explains capability and when to use the skill
 - brief: concise objective and workflow summary
 - resources: array containing zero or more of references, scripts, assets
 - examples: array of concrete user prompts that should trigger the skill
+- workflow: array of actionable task-specific steps grounded in the source material
+- quality_checks: array of observable acceptance criteria
+- constraints: array of actual limitations or safety boundaries
+- resource_files: array of objects with path, content, purpose; use [] unless complete resources help
+Resource paths must be under references/, scripts/, or assets/ with forward slashes.
+Resource content must be complete, not placeholder code. Never claim a script was executed.
+Write descriptions, steps, and checks in the language of the source material.
 """
 
 
@@ -80,6 +87,9 @@ def build_planner_prompt(
             "- Choose references only when detailed domain material should be loaded later.",
             "- Choose assets only when reusable templates or static files are useful.",
             "- Avoid unsafe side effects unless the brief explicitly requires them.",
+            "- Preserve missing information as uncertainty; do not invent domain requirements.",
+            "- Give concrete workflow steps and independently observable quality checks.",
+            "- Prefer no resource files over unfinished templates or helper scripts.",
         ]
     )
     return "\n".join(parts)
@@ -108,6 +118,11 @@ def skill_plan_from_payload(
     override_resources: tuple[str, ...] = (),
     extra_examples: tuple[str, ...] = (),
 ) -> SkillPlan:
+    for field_name in ("workflow", "quality_checks"):
+        _validate_string_array(payload, field_name)
+        if any(not item.strip() for item in payload.get(field_name, [])):
+            raise ValueError(f"SkillPlan field '{field_name}' must not contain empty steps.")
+    resource_files = _resource_files(payload)
     raw_name = override_name or _string(payload.get("name")) or "generated-skill"
     name = normalize_skill_name(raw_name)
     description = (
@@ -130,6 +145,9 @@ def skill_plan_from_payload(
         failure_cases=_strings(payload.get("failure_cases")),
         sources=_sources(payload.get("sources")),
         review_notes=_strings(payload.get("review_notes")),
+        workflow=_strings(payload.get("workflow")),
+        quality_checks=_strings(payload.get("quality_checks")),
+        resource_files=resource_files,
     )
 
 
@@ -155,6 +173,12 @@ def skill_plan_to_dict(plan: SkillPlan) -> dict[str, Any]:
             for source in plan.sources
         ],
         "review_notes": list(plan.review_notes),
+        "workflow": list(plan.workflow),
+        "quality_checks": list(plan.quality_checks),
+        "resource_files": [
+            {"path": resource.path, "content": resource.content, "purpose": resource.purpose}
+            for resource in plan.resource_files
+        ],
     }
 
 
@@ -198,6 +222,26 @@ def load_skill_plan(path: Path) -> SkillPlan:
 
 def _string(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def _resource_files(payload: dict[str, Any]) -> tuple[ResourceFile, ...]:
+    files = payload.get("resource_files", [])
+    if not isinstance(files, list):
+        raise ValueError("SkillPlan resource_files must be an array.")
+    result: list[ResourceFile] = []
+    seen: set[str] = set()
+    for index, item in enumerate(files):
+        if not isinstance(item, dict) or set(item) != {"path", "content", "purpose"}:
+            raise ValueError(f"SkillPlan resource_files[{index}] must contain path, content, purpose only.")
+        if any(not isinstance(item[key], str) or not item[key].strip() for key in item):
+            raise ValueError(f"SkillPlan resource_files[{index}] fields must be non-empty strings.")
+        path = item["path"]
+        validate_resource_path(path)
+        if path.casefold() in seen or (payload.get("sources") and path.casefold() == "references/sources.md"):
+            raise ValueError(f"Duplicate or reserved resource path: {path}")
+        seen.add(path.casefold())
+        result.append(ResourceFile(path=path, content=item["content"], purpose=item["purpose"].strip()))
+    return tuple(result)
 
 
 def _strings(value: Any) -> tuple[str, ...]:

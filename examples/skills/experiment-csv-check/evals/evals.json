@@ -1,0 +1,9 @@
+{
+  "trigger_tests": [
+    {"id": "csv-quality", "query": "检查实验 CSV 中的缺失值", "should_trigger": true, "keywords": ["CSV", "缺失值"]},
+    {"id": "non-csv", "query": "给我推荐一部电影", "should_trigger": false, "keywords": ["CSV", "缺失值"]}
+  ],
+  "task_tests": [
+    {"id": "read-only-boundary", "assertions": [{"target": "body", "all_contains": ["不自动删行", "最多 25 条", "未被验证"]}]}
+  ]
+}

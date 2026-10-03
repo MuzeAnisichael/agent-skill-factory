@@ -1,0 +1,9 @@
+{
+  "trigger_tests": [
+    {"id": "python-review", "query": "审查这份 Python 作业的边界条件", "should_trigger": true, "keywords": ["Python", "审查"]},
+    {"id": "non-review", "query": "解释牛顿第二定律", "should_trigger": false, "keywords": ["Python", "审查"]}
+  ],
+  "task_tests": [
+    {"id": "evidence-boundary", "assertions": [{"target": "body", "all_contains": ["触发条件", "未验证", "不修改代码"]}]}
+  ]
+}

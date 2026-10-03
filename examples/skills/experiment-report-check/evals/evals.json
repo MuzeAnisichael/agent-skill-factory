@@ -1,0 +1,9 @@
+{
+  "trigger_tests": [
+    {"id": "report-review", "query": "核对实验报告中表格和结论的一致性", "should_trigger": true, "keywords": ["实验报告", "一致性"]},
+    {"id": "non-report", "query": "创建一个俄罗斯方块游戏", "should_trigger": false, "keywords": ["实验报告", "一致性"]}
+  ],
+  "task_tests": [
+    {"id": "evidence-boundary", "assertions": [{"target": "body", "all_contains": ["缺少原始数据", "不能猜测统计方法", "不改写或填补实验结果"]}]}
+  ]
+}

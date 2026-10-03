@@ -95,6 +95,10 @@ If the acceptance rule fails, the command restores the original `SKILL.md` and r
 
 ## Design Notes
 
+- v0.8 description edits parse and serialize YAML while preserving optional metadata values.
+  Comments and formatting may change; invalid YAML requires manual repair before eval/actions.
+- Immediate rollback is not persistent version history, and the acceptance set is not held out.
+  Inserted assertion strings do not prove real Agent improvement.
 - The repair loop does not call an LLM.
 - The source Skill remains the source of truth.
 - The repair plan is reviewable JSON.

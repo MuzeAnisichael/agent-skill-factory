@@ -383,16 +383,18 @@ def _read_skill_text(skill_dir: Path) -> str:
 
 def _skill_snapshot(skill_dir: Path, skill_text: str) -> dict[str, str]:
     parsed = parse_frontmatter(skill_text)
+    if parsed.errors:
+        raise EvalError(f"Invalid Skill frontmatter: {'; '.join(parsed.errors)}")
     visible_text = "\n".join(
         [
-            parsed.data.get("name", ""),
-            parsed.data.get("description", ""),
+            parsed.string("name"),
+            parsed.string("description"),
             parsed.body,
         ]
     ).lower()
     return {
-        "name": parsed.data.get("name", ""),
-        "description": parsed.data.get("description", ""),
+        "name": parsed.string("name"),
+        "description": parsed.string("description"),
         "body": parsed.body,
         "text": visible_text,
         "path": str(skill_dir),

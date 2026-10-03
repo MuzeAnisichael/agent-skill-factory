@@ -14,6 +14,16 @@ FIXTURES = Path(__file__).parent / "fixtures" / "skills"
 
 
 class CliTests(unittest.TestCase):
+    def test_generate_manual_workflow_and_quality_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code = self.run_cli(["generate", "--name", "review-data", "--brief", "Review data.",
+                                         "--step", "Inspect the declared columns.", "--check", "List source rows.", "--output", tmp])
+            self.assertEqual(exit_code, 0)
+            text = (Path(tmp) / "review-data/SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("Inspect the declared columns.", text)
+            self.assertIn("List source rows.", text)
+            self.assertNotIn("DRAFT:", text)
+
     def run_cli(self, argv: list[str]) -> int:
         with contextlib.redirect_stdout(io.StringIO()):
             return main(argv)

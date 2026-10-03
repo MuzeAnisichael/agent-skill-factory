@@ -13,7 +13,9 @@ python -m unittest discover -s tests -v
 
 An editable install is the simplest cross-platform setup. To run directly from a checkout without installing, set `PYTHONPATH=src` on macOS/Linux or `$env:PYTHONPATH = "src"` in PowerShell before invoking Python.
 
-The project currently has no runtime dependencies. Keep it that way unless a dependency removes meaningful complexity.
+PyYAML is the only runtime dependency. Keep additional dependencies justified by concrete
+complexity or reliability benefits; do not add an orchestration framework to this small core.
+Direct source execution also requires PyYAML to be installed.
 
 Before opening a pull request, run:
 
@@ -23,6 +25,17 @@ python -m unittest discover -s tests -v
 ```
 
 GitHub Actions runs these checks on Python 3.10-3.12 on Linux and Windows.
+
+For packaging changes, also run:
+
+```bash
+python -m pip install build
+python -m build
+python tools/check_package.py --expected-version 0.8.0
+```
+
+The package check needs network access to install build/runtime dependencies in clean temporary
+virtual environments. It exercises both the wheel and source archive outside the source tree.
 
 ## Development Principles
 

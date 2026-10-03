@@ -1,11 +1,33 @@
 from __future__ import annotations
 
-from pathlib import Path
+import json
+import re
+from pathlib import Path, PurePosixPath
 
+from .frontmatter import render_frontmatter
 from .models import SkillPlan
 from .naming import display_name, normalize_skill_name
 
 RESOURCE_DIRS = {"references", "scripts", "assets"}
+RESOURCE_PATH_PATTERN = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+")
+
+
+def validate_resource_path(path: str) -> None:
+    parts = PurePosixPath(path).parts
+    if (
+        not RESOURCE_PATH_PATTERN.fullmatch(path)
+        or parts[0] not in RESOURCE_DIRS
+        or any(part in {".", ".."} for part in path.split("/"))
+        or any(part.endswith((".", " ")) for part in parts)
+        or any(
+            part.split(".")[0].upper() in {
+                "CON", "PRN", "AUX", "NUL", *[f"COM{i}" for i in range(1, 10)],
+                *[f"LPT{i}" for i in range(1, 10)],
+            }
+            for part in parts
+        )
+    ):
+        raise ValueError(f"Resource path must be a portable relative path under references/scripts/assets: {path}")
 
 
 def create_skill(plan: SkillPlan, output_dir: Path, force: bool = False) -> Path:
@@ -14,125 +36,91 @@ def create_skill(plan: SkillPlan, output_dir: Path, force: bool = False) -> Path
     if skill_dir.exists() and not force:
         raise FileExistsError(f"skill already exists: {skill_dir}")
 
+    files = {
+        "SKILL.md": _render_skill_md(plan),
+        "agents/openai.yaml": _render_openai_yaml(plan),
+    }
+    seen: set[str] = set()
+    for resource in plan.resource_files:
+        validate_resource_path(resource.path)
+        if resource.path.casefold() in seen or (plan.sources and resource.path.casefold() == "references/sources.md"):
+            raise ValueError(f"Duplicate or reserved resource path: {resource.path}")
+        if not resource.content.strip() or not resource.purpose.strip():
+            raise ValueError(f"Resource content and purpose must be non-empty: {resource.path}")
+        seen.add(resource.path.casefold())
+        files[resource.path] = resource.content if resource.content.endswith("\n") else resource.content + "\n"
+    if plan.sources:
+        files["references/sources.md"] = _render_source_index(plan)
+    normalized_paths = {path.casefold() for path in files}
+    for path in files:
+        if any(parent.as_posix().casefold() in normalized_paths for parent in PurePosixPath(path).parents):
+            raise ValueError(f"Resource paths conflict as file and directory: {path}")
+
+    # Preflight every destination before writing, including force-overwrite paths.
+    root = output_dir.resolve()
+    for relative in files:
+        destination = skill_dir / relative
+        if not destination.resolve().is_relative_to(root):
+            raise ValueError(f"Output path escapes the selected output directory: {destination}")
+        for ancestor in (destination, *destination.parents):
+            if ancestor == output_dir:
+                break
+            if ancestor.is_symlink():
+                raise ValueError(f"Refusing to write through a symbolic link: {ancestor}")
+            if ancestor != destination and ancestor.exists() and not ancestor.is_dir():
+                raise ValueError(f"Output parent is not a directory: {ancestor}")
+        if destination.exists() and not destination.is_file():
+            raise ValueError(f"Output file path is not a regular file: {destination}")
+
+    selected_resources = set(plan.resources) & RESOURCE_DIRS
+    selected_resources.update(PurePosixPath(path).parts[0] for path in files if path.split("/")[0] in RESOURCE_DIRS)
     skill_dir.mkdir(parents=True, exist_ok=True)
-    selected_resources = tuple(resource for resource in plan.resources if resource in RESOURCE_DIRS)
-    if plan.sources and "references" not in selected_resources:
-        selected_resources = (*selected_resources, "references")
     for resource in selected_resources:
         (skill_dir / resource).mkdir(exist_ok=True)
-
-    agents_dir = skill_dir / "agents"
-    agents_dir.mkdir(exist_ok=True)
-
-    (skill_dir / "SKILL.md").write_text(_render_skill_md(plan, selected_resources), encoding="utf-8")
-    (agents_dir / "openai.yaml").write_text(_render_openai_yaml(plan), encoding="utf-8")
-
-    if "references" in selected_resources:
-        if plan.sources:
-            (skill_dir / "references" / "sources.md").write_text(
-                _render_source_index(plan), encoding="utf-8"
-            )
-        else:
-            (skill_dir / "references" / "domain.md").write_text(
-                _render_reference(plan), encoding="utf-8"
-            )
-    if "scripts" in selected_resources:
-        (skill_dir / "scripts" / "helper.py").write_text(_render_helper_script(), encoding="utf-8")
-    if "assets" in selected_resources:
-        (skill_dir / "assets" / "template.md").write_text(_render_asset_template(plan), encoding="utf-8")
-
+    for relative, content in files.items():
+        destination = skill_dir / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(content, encoding="utf-8")
     return skill_dir
 
 
-def _render_skill_md(plan: SkillPlan, resources: tuple[str, ...]) -> str:
+def _render_skill_md(plan: SkillPlan) -> str:
     skill_name = normalize_skill_name(plan.name)
     description = plan.description.strip() or f"Use this skill when the agent needs to perform {skill_name} work."
-    brief = plan.brief.strip() or "Add concrete workflow details before publishing this Skill."
+    if len(description) > 1024:
+        raise ValueError("Description must be at most 1024 characters.")
+    brief = plan.brief.strip()
 
     resource_lines: list[str] = []
-    if "references" in resources and plan.sources:
+    if plan.sources:
         resource_lines.append(
             "- Load `references/sources.md` when source provenance, terminology, observed tools, "
             "or failure cases are needed."
         )
-    elif "references" in resources:
-        resource_lines.append("- Load `references/domain.md` only when domain details are needed.")
-    if "scripts" in resources:
-        resource_lines.append("- Prefer `scripts/helper.py` for deterministic repeated operations.")
-    if "assets" in resources:
-        resource_lines.append("- Use files under `assets/` as output templates or static resources.")
-    if not resource_lines:
-        resource_lines.append("- Keep supporting material out of this Skill unless it is essential.")
-
-    examples = "\n".join(f"- {example}" for example in plan.examples if example.strip())
-    if not examples:
-        examples = "- Add one or two concrete user requests before publishing."
-
-    constraints = ""
-    if plan.constraints:
-        constraint_lines = "\n".join(f"- {constraint}" for constraint in plan.constraints)
-        constraints = f"""
-## Source-Grounded Rules
-
-{constraint_lines}"""
-
-    return f"""---
-name: {skill_name}
-description: {description}
----
-
-# {display_name(skill_name)}
-
-## Objective
-
-{brief}
-
-## Workflow
-
-1. Restate the task outcome and identify the relevant inputs.
-2. Choose the smallest resource set needed for the task.
-3. Follow the project or domain-specific procedure before general reasoning.
-4. Validate the output against concrete acceptance criteria.
-5. Surface uncertainty, missing inputs, or unsafe actions before proceeding.
-
-## Resources
-
-{chr(10).join(resource_lines)}
-{constraints}
-
-## Examples
-
-{examples}
-
-## Quality Bar
-
-- Keep output grounded in the provided materials.
-- Avoid broad claims that are not supported by the task context.
-- Prefer deterministic scripts for fragile or repetitive transformations.
-- Ask for approval before actions with external side effects.
-"""
+    resource_lines.extend(f"- `{resource.path}`: {resource.purpose}" for resource in plan.resource_files)
+    steps = "\n".join(f"{index}. {step}" for index, step in enumerate(plan.workflow, start=1))
+    if not steps:
+        steps = "DRAFT: Add task-specific workflow steps before publishing."
+    body = f"# {display_name(skill_name)}\n\n## Objective\n\n{brief}\n\n## Workflow\n\n{steps}\n"
+    if resource_lines:
+        body += "\n## Resources\n\n" + "\n".join(resource_lines) + "\n"
+    body += _render_optional_list("Constraints", plan.constraints)
+    body += _render_optional_list("Examples", plan.examples)
+    body += _render_optional_list("Quality Checks", plan.quality_checks)
+    return render_frontmatter({"name": skill_name, "description": description}, body)
 
 
 def _render_openai_yaml(plan: SkillPlan) -> str:
     skill_name = normalize_skill_name(plan.name)
     label = display_name(skill_name)
-    short_description = plan.description.strip().replace('"', "'")
+    short_description = " ".join(plan.description.split())[:64]
+    if len(short_description) < 25:
+        short_description = f"Reusable agent workflow for {label}"[:64]
     default_prompt = f"Use ${skill_name} to complete the task with its documented workflow."
-    return f"""display_name: "{label}"
-short_description: "{short_description}"
-default_prompt: "{default_prompt}"
-"""
-
-
-def _render_reference(plan: SkillPlan) -> str:
-    return f"""# Domain Reference
-
-Add detailed domain rules, schemas, examples, or API notes here.
-
-Source brief:
-
-{plan.brief.strip()}
-"""
+    interface = {"display_name": label, "short_description": short_description, "default_prompt": default_prompt}
+    return "interface:\n" + "".join(
+        f"  {key}: {json.dumps(value, ensure_ascii=False)}\n" for key, value in interface.items()
+    )
 
 
 def _render_source_index(plan: SkillPlan) -> str:
@@ -161,25 +149,3 @@ def _render_optional_list(title: str, items: tuple[str, ...]) -> str:
         return ""
     lines = "\n".join(f"- {item}" for item in items)
     return f"\n## {title}\n\n{lines}\n"
-
-
-def _render_helper_script() -> str:
-    return '''"""Helper script placeholder for deterministic Skill operations."""
-
-
-def main() -> int:
-    print("Replace this placeholder with a deterministic operation for the Skill.")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-'''
-
-
-def _render_asset_template(plan: SkillPlan) -> str:
-    skill_name = normalize_skill_name(plan.name)
-    return f"""# {display_name(skill_name)} Template
-
-Replace this file with reusable output material for `{skill_name}`.
-"""

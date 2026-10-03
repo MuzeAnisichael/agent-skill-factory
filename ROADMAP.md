@@ -1,84 +1,89 @@
 # Roadmap and Completion Table
 
-Agent Skill Factory is developed in small, testable milestones. The near-term goal is a reliable local CLI before any hosted service or marketplace work.
+Agent Skill Factory is a local-first, headless core for creating, checking and distributing
+Skills. Students and early-career research developers are the initial audience.
+Current version: **v0.8.0 (alpha)**.
 
-Current version target completed in this repository: `v0.7.0`.
+## Evidence States
 
-## Completion Summary
+We use evidence instead of completion percentages:
 
-| Milestone | Status | Completion | Evidence | Next Step |
-|---|---:|---:|---|---|
-| M0 Repository and spec | Done | 100% | README, docs, MIT license, security model | Keep docs aligned with implementation |
-| M1 Local CLI skeleton | Done | 100% | `skill-factory init`, `generate`, `lint` | Improve CLI ergonomics |
-| M1.5 LLM planning | Done | 100% | `plan`, `generate --llm`, provider health, Ollama and OpenAI-compatible clients | Add streaming only when a workflow needs it |
-| M2 Static linter | In progress | 85% | Core checks plus built-in and custom policy profiles | Add duplicate-content and dependency checks |
-| M3 Local eval runner | In progress | 85% | Eval drafts, trigger/task/runner cases, schema, reports, regression comparison | Add model-graded and structured trace evals |
-| M3.5 Local registry and export | Done | 100% | `registry add/list/show`, `export`, `install`, source hashes, risk and eval metadata | Add signing and trust policies later |
-| M3.8 Runner-backed evals | Done | 100% | Dry-run, LLM, and subprocess runners; with/without Skill and baseline comparison | Add first-party runtime adapters later |
-| M4 Repair loop | Done | 100% | `repair plan`, `repair apply`, bounded edits, rollback on regression | Add LLM-assisted repair proposals later |
-| M5 Source and trace ingestion | Done | 100% | `ingest`, Trace schema, versioned plans, source hashes, review notes | Broaden extractors from real usage |
-| M5.5 Runtime integration | In progress | 50% | Generic JSON subprocess adapter | Add trace capture, tool events, and isolation guidance |
-| M6 Hosted/web surface | Later | 0% | Out of initial scope | Defer until policy and runtime gates mature |
+- **Implemented**: code and focused offline tests exist.
+- **Integration verified**: the local end-to-end workflow or executable helper has been exercised.
+- **Field validated**: independent real Agent tasks or user trials provide evidence.
+- **Released**: a GitHub tag and release artifacts identify a tested version.
 
-## v0.7.0 Scope
+Implemented features are not automatically field validated. No real Agent quality uplift is
+claimed by the offline test count or dry-run scores.
 
-Goal: turn source-grounded Skill plans into configurable, operational quality gates.
+## Completion Table
 
-Completed:
-
-- Added standard, strict, permissive, and custom JSON lint policies.
-- Added source-aware eval draft generation from reviewed `SkillPlan` data.
-- Added read-only provider connectivity and model availability diagnostics.
-- Added a generic subprocess Agent runner with a documented JSON protocol.
-- Added structured runner failure reporting and offline tests for every new boundary.
-
-Acceptance criteria:
-
-- Teams can enforce stricter lint behavior without forking the linter. Done.
-- Ingested examples and failures can seed a schema-valid eval file without model access. Done.
-- Users can diagnose Ollama or API model discovery before generation. Done.
-- An external Agent can participate in with/without-Skill evals through a stable process boundary. Done.
-
-Not included in v0.7:
-
-- First-party adapters for individual Agent CLIs or SDKs.
-- Automatic live trace and structured tool-call capture.
-- Process sandboxing or remote execution.
-- Signed packages and registry trust policy.
-
-## v0.8 Direction
-
-The next release should harden distribution and runtime evidence before adding a hosted surface.
-Candidate work includes signed export manifests, registry trust policies, structured Agent trace
-capture, one first-party runtime adapter, and dependency/capability declarations.
-
-## Detailed Completion Table
-
-| Component | Done | Remaining |
+| Component | Current evidence | Remaining boundary |
 |---|---|---|
-| CLI command structure | `init`, `ingest`, `plan`, `provider-health`, `generate`, `lint`, `eval-generate`, `eval`, `repair`, schema commands, `registry`, `export`, `install` | CLI completion and shell ergonomics |
-| Eval command | Eval drafts, reports, custom files, lint aggregation, three runners, and baseline comparison | First-party Agent adapters and model grading |
-| Eval validation | Internal validation plus published `docs/eval-schema.json` for trigger, task, and runner tests | Editor examples and schema-version migration policy |
-| Repair loop | Repair planning, deterministic edits, rerun checks, rollback on regression, manual security blocks | LLM-assisted proposals and richer patch previews |
-| LLM provider layer | Ollama and OpenAI-compatible generation plus health checks | Streaming and richer compatibility diagnostics |
-| Skill planning | Manual, LLM, and deterministic source/trace plans with versioned JSON | Confidence reporting and plan migrations |
-| Skill writer | `SKILL.md`, `agents/openai.yaml`, optional resources, source index | Better domain templates |
-| Naming rules | Hyphen-case normalization and validation | Configurable naming policies |
-| Frontmatter parser | Minimal YAML-like parsing for simple metadata | More robust diagnostics and line numbers |
-| Linter | Core checks plus built-in and custom policy profiles | Duplicate-content and dependency checks |
-| Runner layer | Dry-run, optional LLM, and generic subprocess Agent runners | First-party adapters, trace collection, isolation, cost metrics |
-| Local registry | JSON registry, source hashes, risk/eval metadata | Signing, trust policy, dependency metadata |
-| Export/install | Direct export and registry-based install to local client directories | Packaged archives and hosted registry adapters |
-| Source/trace ingestion | Bounded reads, extraction, validation, hashes, review notes, and source-aware eval drafts | More formats and live trace collection |
-| Tests | 70 offline unit and CLI tests across the local lifecycle | Fixture matrix and CI coverage expansion |
-| Documentation | Indexed architecture, ingestion, format, eval, repair, registry, security, roadmap, and bilingual README | More contributor examples |
-| CI | Compile and unit-test matrix for Python 3.10-3.12 on Linux and Windows | Add packaging and type checks when tool choices stabilize |
+| CLI and local lifecycle | Integration verified: unit/CLI tests and clean wheel/source installs | Wider user trials |
+| Source/trace ingestion | Implemented: bounded reads, hashes, versioned traces and source plans | Live trace capture and more formats |
+| Ollama/API planning | Implemented: provider tests and structured plan parsing | Real-model quality, cost and reliability studies |
+| Skill generation | Integration verified: workflow/check/resource plans and three maintained examples | Domain-specific generation effectiveness |
+| Format validation | Implemented: safe YAML, optional fields, type/length/name checks, Chinese cues | Broader compatibility fixtures, not a sandbox |
+| Evaluation | Implemented: heuristic triggers, package assertions, dry-run/LLM/subprocess runners | Independent task/artifact/trace evaluation |
+| Repair | Implemented: bounded edits, reruns and rollback | Held-out acceptance and persistent history |
+| Local registry/export/install | Integration verified: local metadata and file copy lifecycle | Hash verification at install, manifests and trust policies |
+| Packaging/CI | Integration verified locally: source archive and wheel; CI tests Linux/Windows | Published PyPI package is not in scope |
+| Hosted platform | Planned only | User demand and core evidence gates |
 
-## Prioritized Backlog
+Evidence: [tests](tests), [examples](examples/README.md),
+[CI workflow](.github/workflows/ci.yml), [v0.8 verification](docs/releases/v0.8.0.md),
+[GitHub releases](https://github.com/MuzeAnisichael/agent-skill-factory/releases).
 
-1. Add signed export manifests and registry trust policy.
-2. Add structured trace and tool-call capture to the runner protocol.
-3. Add one first-party Agent runtime adapter with isolation guidance.
-4. Add model-graded evals, cost, latency, and tool-call metrics.
-5. Add capability and dependency declarations to Skill metadata.
-6. Add LLM-assisted repair proposals behind the existing bounded repair gate.
+## v0.8: Standards and Practical Generation
+
+- [x] Replace minimal parsing with safe YAML and duplicate-key diagnostics.
+- [x] Validate standard optional fields, metadata types, lengths and single-hyphen names.
+- [x] Support Chinese trigger descriptions without English-only phrase requirements.
+- [x] Add editable workflow steps, observable checks and complete resource contents to plans.
+- [x] Stop generating placeholder helpers/templates; mark incomplete workflows as drafts.
+- [x] Correct Codex interface metadata and preserve optional YAML during description repair.
+- [x] Add Python review, experimental CSV checks and report consistency examples.
+- [x] Test package builds and clean installation of both distribution formats.
+- [x] Align bilingual READMEs, architecture, migration notes and evaluation limitations.
+
+Not included: web UI, cloud accounts, first-party Agent adapters, automatic model-code execution,
+runtime sandboxing, signing, PyPI publication, or claims of proven Agent improvement.
+
+## v0.9: Real Agent Evidence
+
+Priority: establish whether the generated Skills actually help.
+
+1. Select one first-party Agent adapter from the initial users' environment; do not assume a vendor.
+2. Capture task outputs, artifacts and tool events with explicit execution authorization.
+3. Use independent development and held-out test sets, including positive/negative routing cases.
+4. Compare no-Skill, manually authored Skill and generated Skill on the same tasks and settings.
+5. Measure task success, regressions, latency and cost; do not score simple instruction echoes.
+6. Prevent repair from treating inserted assertion strings as proof of behavioral improvement.
+
+Exit gate: reproducible results on a small student/research task set, including failures and
+the limits of the chosen runtime. Adapter integration alone does not satisfy this gate.
+
+## v0.10: Reliable Distribution
+
+1. Verify package hashes at installation; refuse changed registry sources by default.
+2. Export versioned manifests and record provenance, review decisions and repair history.
+3. Define trust policies and capability declarations without implying they enforce a sandbox.
+4. Add signing only after the verifier and key/trust model have concrete users.
+
+Exit gate: reproducible install/upgrade/rollback and tampering tests.
+Cross-client compatibility must be stated by tested versions, not assumed.
+
+## Platform Pilot: After Evidence
+
+Keep this repository the shared core. Build a separate thin local or hosted interface only after
+course/lab pilots establish the workflows worth supporting: generation, inventory, review,
+optimization and sharing. Start with local workspaces and explicit review records; defer a
+public marketplace, multi-tenant execution and billing until there is demand and a threat model.
+
+## Development Order
+
+v0.8 usability and compatibility -> v0.9 task evidence -> v0.10 trustworthy distribution ->
+small platform pilot. Revisit each scope with users before implementation.
+
+Detailed product boundaries and engineering gates: [Development Plan](docs/development-plan.md).

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from skill_factory.generator import create_skill
 from skill_factory.linter import lint_skill
-from skill_factory.models import SkillPlan
+from skill_factory.models import ResourceFile, SkillPlan
 
 
 class GeneratorAndLinterTests(unittest.TestCase):
@@ -21,6 +21,11 @@ class GeneratorAndLinterTests(unittest.TestCase):
                     brief="Create concise release notes grounded in repository changes.",
                     resources=("references", "scripts", "assets"),
                     examples=("Create release notes for the current branch.",),
+                    workflow=("Group merged changes by user-visible impact.",),
+                    quality_checks=("Every item links to its source change.",),
+                    resource_files=(
+                        ResourceFile("references/domain.md", "Group breaking changes first.", "Release categories."),
+                    ),
                 ),
                 root,
             )
@@ -30,8 +35,9 @@ class GeneratorAndLinterTests(unittest.TestCase):
             self.assertTrue(report.passed, [finding.to_dict() for finding in report.findings])
             self.assertTrue((skill_dir / "SKILL.md").exists())
             self.assertTrue((skill_dir / "references" / "domain.md").exists())
-            self.assertTrue((skill_dir / "scripts" / "helper.py").exists())
-            self.assertTrue((skill_dir / "assets" / "template.md").exists())
+            self.assertTrue((skill_dir / "scripts").is_dir())
+            self.assertFalse((skill_dir / "scripts" / "helper.py").exists())
+            self.assertFalse((skill_dir / "assets" / "template.md").exists())
 
     def test_missing_description_fails_lint(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

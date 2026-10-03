@@ -100,7 +100,9 @@ See [trace-schema.json](trace-schema.json) for the complete contract.
 
 Generated source-backed Skills write `references/sources.md`. It records source hashes and compact
 extractions but does not copy the indexed files. `SKILL.md` contains only the concise objective,
-extracted rules, workflow, and examples.
+extracted rules and examples. The source/trace extractor does not infer detailed workflow steps;
+review/add the optional `workflow` and `quality_checks` plan fields before publishing. A plan
+without concrete steps generates an explicit draft warning in v0.8.
 
 Source documents and traces are untrusted input. Lines matching destructive, exfiltration,
 approval-bypass, or prompt-injection patterns are excluded from extracted instructions and listed

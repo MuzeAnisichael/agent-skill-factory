@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .evaluator import DEFAULT_EVAL_PATH, EvalError, evaluate_skill
-from .frontmatter import parse_frontmatter
+from .frontmatter import parse_frontmatter, render_frontmatter
 from .linter import lint_skill
 from .models import LintReport, Severity
 from .naming import display_name
@@ -94,6 +94,8 @@ def plan_repairs(
     plan.lint = _lint_summary(lint_report)
 
     _add_lint_actions(plan, skill_dir, text, lint_report, max_lines=max_lines)
+    if any(finding.code == "frontmatter.invalid" for finding in lint_report.findings):
+        return plan
 
     if include_eval:
         selected_eval_path = eval_path or (skill_dir / DEFAULT_EVAL_PATH)
@@ -210,8 +212,11 @@ def repair_result_to_json(result: RepairResult) -> str:
 
 def _add_lint_actions(plan: RepairPlan, skill_dir: Path, text: str, report: LintReport, max_lines: int) -> None:
     parsed = parse_frontmatter(text)
-    name = parsed.data.get("name") or skill_dir.name
-    description = parsed.data.get("description", "")
+    if parsed.errors:
+        plan.blocked.append("Invalid YAML frontmatter requires manual repair.")
+        return
+    name = parsed.string("name") or skill_dir.name
+    description = parsed.string("description")
     for finding in report.findings:
         if finding.code == "frontmatter.description.missing":
             plan.actions.append(
@@ -278,7 +283,7 @@ def _add_lint_actions(plan: RepairPlan, skill_dir: Path, text: str, report: Lint
 def _add_eval_actions(plan: RepairPlan, skill_dir: Path, text: str, eval_path: Path) -> None:
     payload = _read_json(eval_path)
     parsed = parse_frontmatter(text)
-    skill_text = "\n".join([parsed.data.get("description", ""), parsed.body]).lower()
+    skill_text = "\n".join([parsed.string("description"), parsed.body]).lower()
     requirements: list[str] = []
 
     for case in payload.get("task_tests", []):
@@ -329,27 +334,12 @@ def _apply_action(skill_dir: Path, text: str, action: RepairAction) -> tuple[str
 
 
 def _set_frontmatter_value(text: str, key: str, value: str) -> str:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return f"---\n{key}: {value}\n---\n\n{text}"
-
-    close_index = None
-    for index, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
-            close_index = index
-            break
-    if close_index is None:
-        return text
-
-    replaced = False
-    for index in range(1, close_index):
-        if lines[index].split(":", 1)[0].strip() == key and ":" in lines[index]:
-            lines[index] = f"{key}: {value}"
-            replaced = True
-            break
-    if not replaced:
-        lines.insert(close_index, f"{key}: {value}")
-    return "\n".join(lines) + "\n"
+    parsed = parse_frontmatter(text)
+    if parsed.errors:
+        raise RepairError("Cannot edit invalid YAML frontmatter.")
+    data = dict(parsed.data)
+    data[key] = value
+    return render_frontmatter(data, parsed.body)
 
 
 def _append_requirements(text: str, requirements: tuple[str, ...]) -> str:

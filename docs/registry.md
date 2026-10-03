@@ -129,6 +129,6 @@ All current targets use the same core package layout: a directory containing `SK
 
 - Registry data is deterministic and reviewable in git.
 - Source hashes are calculated from sorted package files.
-- Runtime dependencies remain zero.
+- PyYAML is the only runtime dependency; the registry remains file-based.
 - The registry stores metadata only; the source Skill directory remains the source of truth.
 - Hosted registries, signing, dependency resolution, and trust policies are future work.

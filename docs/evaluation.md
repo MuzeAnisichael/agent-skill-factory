@@ -4,6 +4,20 @@ A Skill is useful only if it improves Agent behavior. The project includes local
 source-aware eval drafts, and runner-backed evals. The default runner is deterministic and
 network-free. Optional LLM and subprocess runners are used only when explicitly requested.
 
+## What Current Results Mean
+
+- Trigger tests use keyword or word-overlap heuristics, not a real Agent's routing decisions.
+- Task assertions inspect package text, not execution outcomes.
+- Dry-run output includes the supplied instructions; a score increase can simply reflect an echo.
+- The LLM runner loads the main body as text, not supporting resources or tools automatically.
+- Subprocess outcomes depend on the user-supplied adapter; it is not sandboxed by this package.
+- Repair reruns the same eval set and can add assertion strings. Passing it is not held-out proof.
+
+The practical examples have package-content checks plus separately executed CSV-helper tests.
+Neither is a benchmark showing improved Agent decisions. Independent tasks, artifacts, trace
+capture and no-Skill/manual-Skill/generated-Skill comparisons are the v0.9 gate in the
+[roadmap](../ROADMAP.md). No live model benchmark is claimed in v0.8.
+
 ## Current Command
 
 ```bash

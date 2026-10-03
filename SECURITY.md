@@ -4,7 +4,8 @@ Please report security issues privately before public disclosure.
 
 ## Supported Versions
 
-This project is in alpha. Security fixes are applied to the `main` branch until versioned releases begin.
+This project is in alpha. Security fixes target the latest release and `main`; older alpha
+versions do not have separate maintenance branches. Upgrade to the latest release when fixes ship.
 
 ## In Scope
 

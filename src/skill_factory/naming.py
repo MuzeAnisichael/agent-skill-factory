@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-NAME_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
+NAME_PATTERN = re.compile(r"\A(?!.*--)[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\Z")
 
 
 def normalize_skill_name(raw: str) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 from .frontmatter import parse_frontmatter
 from .models import LintFinding, LintReport, Severity
@@ -10,7 +11,11 @@ from .naming import NAME_PATTERN
 from .policies import LintPolicy, load_lint_policy, override_max_lines
 from .security import DANGEROUS_PATTERNS
 
-ALLOWED_FRONTMATTER_KEYS = {"name", "description"}
+ALLOWED_FRONTMATTER_KEYS = {
+    "name", "description", "license", "compatibility", "metadata", "allowed-tools"
+}
+CJK_PATTERN = re.compile(r"[\u3400-\u9fff]")
+TRIGGER_PATTERN = re.compile(r"\b(?:when|for|trigger)\b|用于|适用|用来|当.+时|在.+时|触发", re.IGNORECASE)
 AUXILIARY_DOC_NAMES = {
     "README.md",
     "INSTALLATION_GUIDE.md",
@@ -23,6 +28,10 @@ GENERIC_FILLER = (
     "leverage ai",
     "be helpful",
     "do the task",
+)
+UNFINISHED_MARKERS = (
+    "draft: add task-specific", "replace this placeholder", "replace this file",
+    "add detailed domain rules", "add the missing reference material", "helper script placeholder",
 )
 RESOURCE_REF_PATTERN = re.compile(r"(?:references|scripts|assets)/[A-Za-z0-9_.\-/]+")
 TEXT_RESOURCE_EXTENSIONS = {".json", ".md", ".rst", ".toml", ".txt", ".yaml", ".yml"}
@@ -52,8 +61,8 @@ def lint_skill(
     for error in frontmatter.errors:
         report.add(Severity.ERROR, "frontmatter.invalid", error, skill_file)
 
-    name = frontmatter.data.get("name", "")
-    description = frontmatter.data.get("description", "")
+    name = frontmatter.string("name")
+    description = frontmatter.string("description")
     _lint_frontmatter(
         report,
         skill_file,
@@ -95,16 +104,18 @@ def _lint_frontmatter(
     skill_dir: Path,
     name: str,
     description: str,
-    data: dict[str, str],
+    data: dict[str, Any],
     description_min_length: int,
 ) -> None:
-    if not name:
+    if data.get("name") is not None and not isinstance(data["name"], str):
+        report.add(Severity.ERROR, "frontmatter.name.type", "Name must be a string.", skill_file)
+    elif not name:
         report.add(Severity.ERROR, "frontmatter.name.missing", "Missing frontmatter name.", skill_file)
-    elif not NAME_PATTERN.match(name):
+    elif not NAME_PATTERN.fullmatch(name):
         report.add(
             Severity.ERROR,
             "frontmatter.name.invalid",
-            "Name must use lowercase letters, digits, and hyphens, with max length 64.",
+            "Name must use lowercase letters and digits with single internal hyphens, max length 64.",
             skill_file,
         )
     elif skill_dir.name != name:
@@ -115,7 +126,11 @@ def _lint_frontmatter(
             skill_dir,
         )
 
-    if not description:
+    if data.get("description") is not None and not isinstance(data["description"], str):
+        report.add(
+            Severity.ERROR, "frontmatter.description.type", "Description must be a string.", skill_file
+        )
+    elif not description.strip():
         report.add(
             Severity.ERROR,
             "frontmatter.description.missing",
@@ -123,23 +138,54 @@ def _lint_frontmatter(
             skill_file,
         )
     else:
-        lower_description = description.lower()
-        if len(description) < description_min_length:
+        if len(description) > 1024:
+            report.add(
+                Severity.ERROR, "frontmatter.description.too_long",
+                "Description must be at most 1024 characters.", skill_file,
+            )
+        # CJK characters carry more information than single Latin characters.
+        effective_length = len(description.strip()) + len(CJK_PATTERN.findall(description))
+        if effective_length < description_min_length:
             report.add(
                 Severity.WARNING,
                 "frontmatter.description.short",
                 (
                     "Description is short; include capability and trigger context "
-                    f"in at least {description_min_length} characters."
+                    f"in at least {description_min_length} units (CJK characters count as two)."
                 ),
                 skill_file,
             )
-        if not any(marker in lower_description for marker in ("use when", "when", "for", "trigger")):
+        if not TRIGGER_PATTERN.search(description):
             report.add(
                 Severity.WARNING,
                 "frontmatter.description.trigger_weak",
                 "Description should explain when the Skill should be used.",
                 skill_file,
+            )
+
+    for key in ("license", "compatibility", "allowed-tools"):
+        if key not in data:
+            continue
+        value = data[key]
+        if not isinstance(value, str) or not value.strip():
+            report.add(
+                Severity.ERROR, "frontmatter.optional.invalid",
+                f"'{key}' must be a non-empty string when provided.", skill_file,
+            )
+        elif key == "compatibility" and len(value) > 500:
+            report.add(
+                Severity.ERROR, "frontmatter.compatibility.too_long",
+                "Compatibility must be at most 500 characters.", skill_file,
+            )
+    if "metadata" in data:
+        metadata = data["metadata"]
+        if not isinstance(metadata, dict) or any(
+            not isinstance(key, str) or not isinstance(value, str)
+            for key, value in metadata.items()
+        ):
+            report.add(
+                Severity.ERROR, "frontmatter.metadata.invalid",
+                "Metadata must be a mapping of string keys to string values.", skill_file,
             )
 
     extra_keys = set(data) - ALLOWED_FRONTMATTER_KEYS
@@ -167,6 +213,7 @@ def _lint_body(report: LintReport, skill_file: Path, body: str, max_lines: int) 
         )
 
     lower_body = body.lower()
+    _lint_unfinished(report, skill_file, body, "body.unfinished")
     _add_dangerous_findings(
         report, skill_file, lower_body, code="security.dangerous_instruction"
     )
@@ -232,6 +279,7 @@ def _lint_scripts(report: LintReport, skill_dir: Path) -> None:
         if not script.is_file():
             continue
         text = script.read_text(encoding="utf-8", errors="replace")
+        _lint_unfinished(report, script, text, "resource.unfinished")
         _add_dangerous_findings(report, script, text, code="security.dangerous_script")
         if script.suffix == ".py":
             try:
@@ -254,7 +302,16 @@ def _lint_text_resources(report: LintReport, skill_dir: Path) -> None:
             if not path.is_file() or path.suffix.lower() not in TEXT_RESOURCE_EXTENSIONS:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
+            _lint_unfinished(report, path, text, "resource.unfinished")
             _add_dangerous_findings(report, path, text, code="security.dangerous_resource")
+
+
+def _lint_unfinished(report: LintReport, path: Path, text: str, code: str) -> None:
+    if any(marker in text.lower() for marker in UNFINISHED_MARKERS):
+        report.add(
+            Severity.WARNING, code,
+            "Skill contains unfinished draft instructions or scaffold placeholders.", path,
+        )
 
 
 def _add_dangerous_findings(

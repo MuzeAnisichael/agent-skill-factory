@@ -1,161 +1,67 @@
 # Development Plan
 
-For a concise public-facing milestone table, see [Roadmap and Completion Table](../ROADMAP.md).
+The [roadmap](../ROADMAP.md) is the single source of truth for release scope and completion state.
+This document defines product and engineering gates, not a second percentage-based schedule.
 
 ## Product Goal
 
-Build a practical toolchain for creating Agent Skills that are:
+Provide a small reusable core for students and research developers to create useful Skills
+from task material, review them, verify what can be checked locally, and export them to an Agent.
+A future generation/management/review/optimization/sharing platform should embed this core.
 
-- Reusable across compatible Agent clients.
-- Grounded in real project or organization knowledge.
-- Concise enough to preserve context.
-- Evaluated against realistic tasks.
-- Safe by default.
+## Design Constraints
 
-## Non-Goals
+- Python 3.10+, local file-based CLI; no database or service is needed for the current lifecycle.
+- One runtime dependency, PyYAML, replaces ad hoc YAML parsing. Build tools are development-only.
+- Model access is optional. Offline generation, linting and package evaluation remain available.
+- Model output is reviewed data. Writing a script is not authorization to execute it.
+- Keep domain examples separate from the runtime; avoid a growing template engine or plugin framework.
+- Separate package correctness, integration correctness and actual Agent effectiveness.
 
-- Do not build a general Agent marketplace in the first version.
-- Do not auto-install untrusted Skills into user environments.
-- Do not support arbitrary remote code execution.
-- Do not optimize for every Agent client-specific extension at the start.
+## Delivery History
 
-## Milestone 0: Repository and Spec
+| Version | Delivered surface | Still not implied |
+|---|---|---|
+| v0.1-v0.2 | CLI, generation, lint, optional LLM planning and local evals | Production-grade content or Agent success |
+| v0.3 | Local registry, export and install | Signed or hash-verified installation |
+| v0.4 | Runner-backed checks and comparison | A first-party Agent integration |
+| v0.5 | Deterministic bounded repair and rollback | Persistent snapshots or held-out improvement |
+| v0.6 | Source and successful/failed trace ingestion | Automatic live trace capture |
+| v0.7 | Lint policies, eval drafts, provider health and generic subprocess protocol | Sandboxed Agent execution |
+| v0.8 | Safe format handling, Chinese cues, concrete plans, practical examples and install tests | Field-validated generation quality |
 
-Status: complete.
+## v0.8 Acceptance Gates
 
-Deliverables:
+1. Common YAML constructs, quoting, Unicode and optional metadata survive parsing and repair.
+2. Invalid types, duplicate keys, unsupported names and specification length violations fail clearly.
+3. An old schema-version-1 plan remains readable; new fields are additive and documented.
+4. A reviewed plan writes its real workflow/resources; an incomplete plan remains an explicit draft.
+5. Generated resources cannot select paths outside the package, portable name rules are checked,
+   and symlink/file-directory conflicts are rejected before writing.
+6. Three examples pass strict lint and package checks; the CSV helper executes correctly on clean,
+   malformed and contract-violating data without modifying input.
+7. Source archives and wheels install into separate clean environments and pass the local lifecycle.
+8. Bilingual README, architecture, changelog and roadmap accurately describe current limits.
 
-- Public repository.
-- MIT license.
-- Architecture documentation.
-- Output Skill format.
-- Evaluation and security model.
+Verification details: [v0.8.0](releases/v0.8.0.md).
 
-Exit criteria:
+## Next Release Gates
 
-- A contributor can understand what will be built and how to help.
+**v0.9** requires independent real Agent evidence, not more keyword tests. Choose one runtime,
+capture artifacts and traces, separate train/development/held-out cases, and compare no-Skill,
+manual-Skill and generated-Skill outcomes. Define task success before optimizing the generator.
 
-## Milestone 1: Local CLI Skeleton
+**v0.10** requires verifiable distribution: install-time hashes, manifests, review/version records,
+tampering tests and reversible upgrades. Signatures are meaningful only with a specified trust model.
 
-Deliverables:
+**Platform pilot** requires real student/lab feedback first. Keep UI/account/share concerns outside
+this package; reuse its plan, lint, eval and export contracts rather than duplicating them.
 
-- `skill-factory init`
-- `skill-factory generate`
-- `skill-factory lint`
-- Local config file.
-- Basic JSON schema for internal planning records.
+## Scope Changes and Release Process
 
-Exit criteria:
+Discuss substantial feature scope before implementation. Use a focused branch, update tests and
+both README languages, build the distributions, run clean-install checks, push through the local
+CLI and review CI before merging/releasing. Do not publish to PyPI without a separate decision.
 
-- Given a small task brief, the CLI creates a valid Skill directory.
-
-Status: initial implementation complete.
-
-## Milestone 2: Static Linter
-
-Deliverables:
-
-- Name and frontmatter validation.
-- Description quality checks.
-- Reference existence checks.
-- Length checks.
-- Permission and shell-risk checks.
-- JSON report output.
-
-Exit criteria:
-
-- Invalid or unsafe draft Skills fail lint with actionable messages.
-
-Status: initial implementation complete for frontmatter, naming, resource references, length, generic filler, dangerous instruction, and Python syntax checks.
-
-## Milestone 3: Eval Runner
-
-Deliverables:
-
-- `evals/evals.json` convention.
-- Trigger test format.
-- Task eval format.
-- With-skill vs without-skill runner abstraction.
-- Markdown and JSON reports.
-
-Exit criteria:
-
-- A Skill can prove improvement over a baseline on at least one small eval set.
-
-Status: local eval implementation is complete for trigger cases, task assertions, runner-backed evals, strict configuration validation, JSON and Markdown reports, published JSON Schema, and baseline Skill comparison. Real Agent runtime adapters remain planned.
-
-## Milestone 3.5: Registry and Export
-
-Deliverables:
-
-- Local registry index.
-- Version metadata.
-- Risk metadata.
-- Export to `.agents/skills/`.
-- Export adapters for `.claude/skills/` and Codex-style user skills.
-
-Exit criteria:
-
-- Users can generate, validate, version, and install a Skill locally.
-
-Status: local registry and export/install implementation complete in `v0.3.0`. Hosted registry, signing, dependency policy, and trust-policy checks remain future work.
-
-## Milestone 4: Repair Loop
-
-Deliverables:
-
-- Bounded edit generation.
-- Eval-aware acceptance rule.
-- Version snapshots.
-- Regression checks.
-
-Exit criteria:
-
-- The system can improve a weak Skill description or split an oversized Skill into references without manual rewrite.
-
-Status: initial implementation complete in `v0.5.0` with `repair plan`, `repair apply`, deterministic edits, lint/eval reruns, rollback on regression, and manual security blocks.
-
-## Milestone 5: Source and Trace Ingestion
-
-Deliverables:
-
-- Recursive bounded ingestion for UTF-8 documents and code.
-- Deterministic task, constraint, terminology, and summary extraction.
-- Versioned successful/failed Agent trace format.
-- Reviewable `SkillPlan` JSON with source hashes and safety review notes.
-- Source-attributed generation through `generate --from-plan`.
-
-Exit criteria:
-
-- Users can create and review a source-grounded plan without model access, then generate a Skill
-  that records provenance without copying the source documents.
-
-Status: complete in `v0.6.0` with `ingest`, `generate --from-plan`, Trace schema validation,
-prompt-injection filtering, source indexes, and offline fixtures.
-
-## Implementation Bias
-
-Start with Python for the CLI and validation tooling. Keep the core package small, file-based, and testable. Avoid introducing a database until the registry needs concurrent users or hosted collaboration.
-
-## Next Technical Tasks
-
-1. Add signed export manifests and registry trust policies.
-2. Extend the subprocess protocol with structured trace and tool-call capture.
-3. Add one first-party Agent runtime adapter and isolation guidance.
-4. Add capability and dependency declarations to Skill metadata.
-5. Add model-graded evals and LLM-assisted repair behind existing deterministic gates.
-
-## Completion Matrix
-
-| Workstream | Current State | Completion |
-|---|---|---:|
-| Repository presentation | README, license, security, contributing, support, changelog, CI, templates | 100% |
-| CLI foundation | `init`, `ingest`, `plan`, `generate`, `lint`, `eval`, `repair`, schema commands, `registry`, `export`, `install` | 100% |
-| LLM planning | Ollama and OpenAI-compatible structured `SkillPlan` generation | 100% |
-| Skill generation | Standard folder output with optional resources and source attribution | 90% |
-| Static linting | Core checks plus built-in and custom policy profiles | 85% |
-| Evaluation | Source-aware drafts, trigger/task/runner tests, validation, schema, reports, regression comparison | 85% |
-| Runner layer | Dry-run, optional LLM, and generic subprocess Agent runners | 100% |
-| Repair loop | Bounded plan/apply flow, deterministic edits, rollback on regression, manual security blocks | 100% |
-| Registry/export | Local registry, source hashes, risk/eval metadata, export and install commands | 100% |
-| Source/trace ingestion | Bounded extraction, Trace validation, versioned plans, source hashes, review notes, eval drafts | 100% |
+Local regression tests are engineering evidence. A passing dry-run or auto-repair on the same
+assertions is not evidence that a Skill improves an Agent's decisions.
